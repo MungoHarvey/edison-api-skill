@@ -1,0 +1,7 @@
+gene_id,control_mean,als_mean
+TP53,5.2,4.8
+TARDBP,6.1,2.3
+SOD1,5.8,1.9
+FUS,5.5,3.2
+
+Question: Are any genes significantly downregulated in ALS vs control?
