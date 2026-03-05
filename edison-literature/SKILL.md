@@ -105,23 +105,6 @@ With `--verbose`, also available:
 
 ---
 
-## Claude Code Integration
-
-```
-Use the Edison literature search script to find evidence for:
-"What is the role of stress granules in TDP-43 pathology in ALS?"
-Save the formatted output to results/tdp43_stress_granules.md
-```
-
-Claude Code will call the script, capture the task ID, and save the markdown.
-
-## Claude Cowork Integration
-
-Cowork can be instructed to:
-1. Write a query string to a temp file
-2. Invoke `literature_search.py --query "..." --output <path>`
-3. Open the output Markdown for review
-
 ---
 
 ## Error Handling

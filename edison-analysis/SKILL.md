@@ -103,30 +103,18 @@ before passing to Edison, rather than submitting full count matrices.
 
 ---
 
-## Claude Code Integration
-
-```
-Use the Edison analysis skill to analyse data/drugseq_zscores.csv.
-Ask: "Which compound clusters show the most orthogonal transcriptional signatures
-to our positive control?"
-Save the report to results/drugseq_analysis.md
-```
-
-## Claude Cowork Integration
-
-Cowork can:
-1. Export a filtered dataset from your pipeline to CSV
-2. Pass it to `data_analysis.py` with a biological question
-3. Import the Markdown report back into your notes/Obsidian vault
-
 ---
 
-## Workflow Integration with DRUGseq Pipeline
+## Example Workflow
 
-For your DRUGseq workflow, a typical sequence would be:
+For analyzing experimental results:
 
-1. Run DESeq2 / z-score normalisation pipeline → export `top_hits.csv`
-2. Submit to Edison Analysis: "Which of these hits have mechanisms consistent with
-   restoring TDP-43 nuclear localisation?"
-3. Use the task ID to ask follow-up: "Which of those compounds have known CNS bioavailability?"
-4. Cross-reference results with `edison-literature` for deep evidence
+1. Prepare your dataset in CSV format (e.g. DESeq2 output, z-scores, screening hits)
+2. Run analysis: `.venv/bin/python edison-skills/edison-analysis/scripts/data_analysis.py \
+    --query "Which genes are significantly altered?" \
+    --data data/results.csv \
+    --output results/analysis.md`
+3. Review the report and use task ID for follow-up questions
+4. Cross-reference findings with `edison-literature` for supporting evidence
+
+For integration with external systems (Obsidian, wikis, pipelines), see the README Integration section.

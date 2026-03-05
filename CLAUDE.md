@@ -99,6 +99,36 @@ source .venv/bin/activate
 .venv/bin/python edison-skills/<skill>/scripts/<script>.py <args>
 ```
 
+### Configure Output Directory (Optional)
+
+By default, scripts save to the `--output` path you specify. We recommend creating a dedicated output directory and setting an environment variable for easy access:
+
+**Create the output directory:**
+```bash
+# Linux/Mac
+mkdir -p ~/Documents/Edison-Outputs
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path "$HOME\Documents\Edison-Outputs"
+```
+
+**Set environment variable (add to .bashrc, .zshrc, or .env):**
+```bash
+# Add to ~/.bashrc or ~/.zshrc (Linux/Mac)
+export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
+
+# Or add to .env at project root (available to all scripts)
+EDISON_OUTPUT_DIR=/Users/yourname/Documents/Edison-Outputs
+```
+
+**Use in commands:**
+```bash
+# Assuming EDISON_OUTPUT_DIR is set
+.venv/bin/python edison-skills/edison-literature/scripts/literature_search.py \
+    --query "Your question" \
+    --output $EDISON_OUTPUT_DIR/$(date +%Y-%m-%d)_topic.md
+```
+
 ### Run Individual Skills
 
 ```bash
@@ -234,17 +264,107 @@ The `.env` file is **never** committed and contains sensitive credentials.
 
 ## Integration Points
 
-### Claude Code
-Scripts are invoked directly by Claude Code when it reads `SKILL.md` files. Example prompt:
-```
-Read the edison-literature SKILL.md, then search for: "What mechanisms underlie X in Y?"
+All skills are **environment-agnostic**: the same `SKILL.md` and Python scripts work identically in Claude Code, Claude Cowork, and standalone CLI usage. For detailed integration examples and differences, see the README's "Integration: Claude Code vs. Claude Cowork" section.
+
+### Claude Code Workflow
+
+1. User gives Claude Code a prompt referencing a SKILL.md
+2. Claude reads the SKILL.md and invokes the adjacent Python script
+3. Script output appears in chat; files saved to `--output` path
+4. Results ready for manual copying to notes/Obsidian
+
+**Best practices:**
+- Reference `SKILL.md` files by name in prompts
+- Use absolute paths or `$HOME` in `--output` arguments
+- Set `EDISON_OUTPUT_DIR` in `.env` for consistency
+
+### Claude Cowork Workflow
+
+1. User creates a desktop task flow that invokes scripts
+2. Cowork detects `.env` and `.venv/` automatically
+3. Scripts run on a schedule or trigger, saving results to files
+4. `obsidian-mcp` or similar integrations auto-import results
+
+**Best practices:**
+- Set `EDISON_OUTPUT_DIR` in shell environment or `.env`
+- Use templated paths in task definitions (e.g., `$(date)_result.md`)
+- Chain skills using task IDs for follow-up queries
+
+### Standalone CLI
+
+Scripts can also be invoked directly from terminal:
+```bash
+.venv/bin/python edison-skills/edison-<skill>/scripts/<script>.py <args>
 ```
 
-### Claude Cowork
-Scripts can be invoked as shell commands in desktop task flows. Cowork detects `.venv/` and `.env` automatically.
+This is useful for testing, scripting, and integration with external tools.
 
-### External Tools
-Scripts write Markdown output suitable for piping to Obsidian, wikis, or other markdown processors.
+## Project Organization
+
+Recommended folder structures for different workflows:
+
+### Claude Code Project (Recommended)
+
+```
+~/Projects/
+├── edison-skills/                    ← This repository
+│   ├── .env                          ← Your API key (git-ignored)
+│   ├── .venv/                        ← Virtual environment (git-ignored)
+│   ├── CLAUDE.md
+│   ├── README.md
+│   └── edison-*/
+└── research-notes/                   ← Optional: separate repo for notes
+```
+
+**Setup:**
+```bash
+cd ~/Projects
+git clone https://github.com/MungoHarvey/edison-api-skill.git edison-skills
+cd edison-skills
+bash edison-skills/edison-setup/scripts/setup_venv.sh
+echo "EDISON_API_KEY=your_key_here" > .env
+echo "EDISON_OUTPUT_DIR=$HOME/Documents/Edison-Outputs" >> .env
+.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
+```
+
+### With Output Directory
+
+```
+~/Documents/
+├── Edison-Outputs/                   ← Results from all queries
+│   ├── 2025-03-05_tdp43_literature.md
+│   ├── 2025-03-05_als_precedent.md
+│   └── 2025-03-06_aspirin_molecules.md
+```
+
+**Reference in scripts:**
+```bash
+export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
+# Now use: --output $EDISON_OUTPUT_DIR/filename.md
+```
+
+### With Obsidian Integration (Optional)
+
+```
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/
+└── MyVault/
+    └── AI-Usage-Log/
+        └── edison/                   ← Auto-imported query results
+            ├── 2025-03-05_tdp43.md
+            └── 2025-03-06_molecules.md
+```
+
+**Update `.env` to point to Obsidian:**
+```bash
+EDISON_OUTPUT_DIR="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyVault/AI-Usage-Log/edison"
+```
+
+Or on Windows:
+```bash
+EDISON_OUTPUT_DIR="%USERPROFILE%\AppData\Local\Obsidian\vault-name\AI-Usage-Log\edison"
+```
+
+---
 
 ## GitHub Repository
 
@@ -262,7 +382,7 @@ git push origin main
 **Key files tracked:**
 - All source files (`*.py`, `*.sh`, `*.md`)
 - `.gitignore` (standard Python + venv exclusions)
-- Excluded from git: `.env`, `.venv/`, `results/`, `__pycache__/`
+- Excluded from git: `.env`, `.venv/`, `results/`, `__pycache__/`, `Edison-Outputs/`
 
 **Cloning for new environments:**
 ```bash
@@ -270,5 +390,7 @@ git clone https://github.com/MungoHarvey/edison-api-skill.git
 cd edison-api-skill
 bash edison-skills/edison-setup/scripts/setup_venv.sh
 echo "EDISON_API_KEY=your_key" > .env
+mkdir -p ~/Documents/Edison-Outputs
+echo "EDISON_OUTPUT_DIR=$HOME/Documents/Edison-Outputs" >> .env
 .venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
 ```

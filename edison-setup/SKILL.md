@@ -129,18 +129,3 @@ project-root/
 | `AuthenticationError` | Missing or invalid API key | Check `.env` file, regenerate key at platform |
 | `ConnectionError` / timeout | Network issue or platform outage | Check https://platform.edisonscientific.com |
 
----
-
-## Claude Code Integration
-
-Claude Code can invoke setup directly:
-
-```
-Run the Edison setup script at edison-skills/edison-setup/scripts/setup_venv.sh
-then validate with test_connection.py
-```
-
-## Claude Cowork Integration
-
-Point Cowork at the project root. The `.env` and `.venv/` are detected automatically
-by all downstream scripts. No additional configuration needed.
