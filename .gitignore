@@ -54,3 +54,6 @@ Thumbs.db
 .AppleDouble
 .LSOverride
 *.lnk
+
+# Archives
+*.zip

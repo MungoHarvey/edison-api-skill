@@ -15,7 +15,7 @@ try:
     from dotenv import load_dotenv
     # Walk up until we find .env (supports running from any subdirectory)
     root = Path(__file__).resolve()
-    for _ in range(6):
+    for _ in range(8):
         root = root.parent
         env_file = root / ".env"
         if env_file.exists():

@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Reference for Claude
+
+| What | Where / How |
+|------|-------------|
+| Python interpreter | `.venv/bin/python` (relative to project root) |
+| Run a skill script | `.venv/bin/python edison-skills/<skill>/scripts/<script>.py <args>` |
+| Environment file | `.env` at project root — variable name: `EDISON_API_KEY` |
+| Template | `.env.example` at project root |
+| Setup command | `bash edison-skills/edison-setup/scripts/setup_venv.sh` |
+| Verify setup | `.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py --ping` |
+
+> `EDISON_OUTPUT_DIR` in `.env` is a user shell convention — scripts do not read it automatically. Pass output paths via `--output`.
+
 ## Project Overview
 
 **Edison Scientific Skills Collection** — A monorepo of Anthropic Open Standard skill definitions wrapping the Edison Scientific platform's REST API. Used to integrate AI agents for scientific research tasks (literature search, molecular design, data analysis, etc.) into Claude Code and Claude Cowork workflows.
@@ -79,7 +92,7 @@ bash edison-skills/edison-setup/scripts/setup_venv.sh
 # ^ Script detects uv and uses it automatically; falls back to pip if uv unavailable
 
 # 3. Configure API key
-echo "EDISON_API_KEY=your_key_here" > .env
+cp .env.example .env  # then edit .env and replace your_api_key_here
 
 # 4. Verify connectivity
 .venv/bin/python edison-skills/edison-setup/scripts/test_connection.py
@@ -112,13 +125,13 @@ mkdir -p ~/Documents/Edison-Outputs
 New-Item -ItemType Directory -Force -Path "$HOME\Documents\Edison-Outputs"
 ```
 
-**Set environment variable (add to .bashrc, .zshrc, or .env):**
+**Set environment variable in your shell (add to .bashrc or .zshrc):**
+
+> Note: Scripts do NOT read `EDISON_OUTPUT_DIR` from `.env` — it is only a shell convenience for your own `--output` arguments. Do not add it to `.env`.
+
 ```bash
 # Add to ~/.bashrc or ~/.zshrc (Linux/Mac)
 export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
-
-# Or add to .env at project root (available to all scripts)
-EDISON_OUTPUT_DIR=/Users/yourname/Documents/Edison-Outputs
 ```
 
 **Use in commands:**
@@ -276,7 +289,7 @@ All skills are **environment-agnostic**: the same `SKILL.md` and Python scripts 
 **Best practices:**
 - Reference `SKILL.md` files by name in prompts
 - Use absolute paths or `$HOME` in `--output` arguments
-- Set `EDISON_OUTPUT_DIR` in `.env` for consistency
+- Set `EDISON_OUTPUT_DIR` in your shell profile for convenience (not in `.env` — scripts don't read it)
 
 ### Claude Cowork Workflow
 
@@ -286,7 +299,7 @@ All skills are **environment-agnostic**: the same `SKILL.md` and Python scripts 
 4. `obsidian-mcp` or similar integrations auto-import results
 
 **Best practices:**
-- Set `EDISON_OUTPUT_DIR` in shell environment or `.env`
+- Set `EDISON_OUTPUT_DIR` in your shell environment (not `.env` — scripts don't read it)
 - Use templated paths in task definitions (e.g., `$(date)_result.md`)
 - Chain skills using task IDs for follow-up queries
 
@@ -322,8 +335,7 @@ cd ~/Projects
 git clone https://github.com/MungoHarvey/edison-api-skill.git edison-skills
 cd edison-skills
 bash edison-skills/edison-setup/scripts/setup_venv.sh
-echo "EDISON_API_KEY=your_key_here" > .env
-echo "EDISON_OUTPUT_DIR=$HOME/Documents/Edison-Outputs" >> .env
+cp .env.example .env  # then edit .env to add your EDISON_API_KEY
 .venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
 ```
 
@@ -389,8 +401,6 @@ git push origin main
 git clone https://github.com/MungoHarvey/edison-api-skill.git
 cd edison-api-skill
 bash edison-skills/edison-setup/scripts/setup_venv.sh
-echo "EDISON_API_KEY=your_key" > .env
-mkdir -p ~/Documents/Edison-Outputs
-echo "EDISON_OUTPUT_DIR=$HOME/Documents/Edison-Outputs" >> .env
+cp .env.example .env  # then edit .env to add your EDISON_API_KEY
 .venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
 ```

@@ -32,7 +32,7 @@ import re
 try:
     from dotenv import load_dotenv
     root = Path(__file__).resolve()
-    for _ in range(7):
+    for _ in range(8):
         root = root.parent
         env_file = root / ".env"
         if env_file.exists():
