@@ -2,405 +2,150 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Quick Reference for Claude
+## Quick Reference
 
-| What | Where / How |
-|------|-------------|
-| Python interpreter | `.venv/bin/python` (relative to project root) |
-| Run a skill script | `.venv/bin/python edison-skills/<skill>/scripts/<script>.py <args>` |
-| Environment file | `.env` at project root — variable name: `EDISON_API_KEY` |
-| Template | `.env.example` at project root |
-| Setup command | `bash edison-skills/edison-setup/scripts/setup_venv.sh` |
-| Verify setup | `.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py --ping` |
+| What | How |
+|------|-----|
+| Run a skill script | `uv run <skill>/scripts/<script>.py <args>` |
+| Environment file | `.env` at project root — variable: `EDISON_API_KEY` |
+| Install uv | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Create venv | `bash edison-setup/scripts/setup_venv.sh` |
+| Verify setup | `uv run edison-setup/scripts/check_environment.py` |
+| Verify + connectivity | `uv run edison-setup/scripts/check_environment.py --ping` |
 
-> `EDISON_OUTPUT_DIR` in `.env` is a user shell convention — scripts do not read it automatically. Pass output paths via `--output`.
+> `EDISON_OUTPUT_DIR` is a user shell convention only — scripts do not read it. Pass output paths via `--output`.
 
 ## Project Overview
 
-**Edison Scientific Skills Collection** — A monorepo of Anthropic Open Standard skill definitions wrapping the Edison Scientific platform's REST API. Used to integrate AI agents for scientific research tasks (literature search, molecular design, data analysis, etc.) into Claude Code and Claude Cowork workflows.
+**Edison Scientific Skills Collection** — a monorepo of Anthropic Open Standard skill definitions wrapping the Edison Scientific REST API. Integrates scientific research tasks (literature search, molecular design, dataset analysis) into Claude Code and Claude Cowork workflows.
 
-Six modular skills, each with:
-- A `SKILL.md` file defining the skill interface (name, description, prerequisites)
-- A `scripts/` directory with one or more Python entry points
-- Support for `.env`-based API key management
+Plugin skill definitions live in `skills/<name>/SKILL.md` (auto-discovered by Claude Code). Python entry points live in `<name>/scripts/` at the project root.
 
 ## Architecture
 
-### Directory Structure
-
-```
-edison-skills/
-├── README.md                          ← High-level overview and quick start
-├── CLAUDE.md                          ← This file
-├── .env                               ← API key (git-ignored, user-created)
-├── .venv/                             ← Virtual environment (git-ignored, auto-created)
-└── {edison-setup, edison-literature, edison-precedent, edison-molecules, edison-analysis, edison-async}/
-    ├── SKILL.md                       ← Anthropic Open Standard skill definition
-    └── scripts/
-        └── {*.py, *.sh}               ← Executable entry points
-```
-
 ### Skill Modules
 
-| Skill | Job Type | Purpose | Entry Point |
-|-------|----------|---------|-------------|
-| `edison-setup` | — | Environment setup, auth validation, pre-flight checks | `scripts/setup_venv.sh`, `scripts/test_connection.py`, `scripts/check_environment.py` |
-| `edison-literature` | `LITERATURE` | Cited scientific literature search (PaperQA3-backed) | `scripts/literature_search.py` |
-| `edison-precedent` | `PRECEDENT` | Binary "has anyone done X?" searches | `scripts/precedent_search.py` |
-| `edison-molecules` | `MOLECULES` | Chemistry, synthesis, molecular design | `scripts/chemistry_task.py` |
-| `edison-analysis` | `ANALYSIS` | Biological dataset analysis | `scripts/data_analysis.py` |
-| `edison-async` | All | Batch submission & polling for concurrent queries | `scripts/async_batch.py` |
-| `edison-evaluation` | All | Test and evaluate skill health and performance | `scripts/evaluate_skills.py` |
+| Skill | `JobNames` enum | Purpose | Entry Point |
+|-------|-----------------|---------|-------------|
+| `edison-setup` | — | Env setup, auth validation, pre-flight checks | `setup_venv.sh`, `check_environment.py`, `test_connection.py` |
+| `edison-literature` | `LITERATURE` | Cited scientific literature search (PaperQA3-backed) | `literature_search.py` |
+| `edison-precedent` | `PRECEDENT` | Binary "has anyone done X?" searches | `precedent_search.py` |
+| `edison-molecules` | `MOLECULES` | Chemistry, synthesis, molecular design | `chemistry_task.py` |
+| `edison-analysis` | `ANALYSIS` | Biological dataset analysis | `data_analysis.py` |
+| `edison-async` | All | Batch submit & poll for concurrent queries | `async_batch.py` |
+| `edison-evaluation` | All | Health checks and performance evaluation | `evaluate_skills.py` |
 
 ### Script Patterns
 
-All scripts follow consistent patterns:
-- **Environment loading**: Walk up from script location to find `.env` at project root via `python-dotenv`
-- **Logging**: Warnings/errors to stderr, results to stdout or `--output` file
-- **CLI interface**: Arguments parsed via `argparse`; support `--output` for file saving
-- **Task tracking**: Print task ID to stderr for chaining follow-up queries via `--continued-from`
-- **JSONL format**: Batch scripts accept task definitions as newline-delimited JSON
-
-### Package Management (Virtual Environment)
-
-- Virtual environment at `.venv/` is created by `setup_venv.sh`
-- **Uses `uv` if available** (detected and invoked automatically)
-- Falls back to `pip` if `uv` is not installed
-- Installs: `edison-client`, `python-dotenv`
-- All scripts invoked via `.venv/bin/python <script>`
+All scripts follow the same conventions:
+- **PEP 723 inline metadata**: Each script declares `edison-client` and `python-dotenv` as dependencies, so `uv run` works without a pre-built venv
+- **`.env` loading**: Walk up from script location (up to 8 levels) to find `.env` via `python-dotenv`
+- **Output**: Results to stdout or `--output <path>`; task IDs and logs to stderr
+- **Exit codes**: `0` = success, `1` = hard failure, `2` = no successful answer / missing API key
+- **Task chaining**: Task ID printed to stderr; pass to next call with `--continued-from <task_id>`
+- **`--ping` flag**: `check_environment.py --ping` is read via `sys.argv`, not argparse (won't appear in `--help`)
 
 ### API Client
 
-All scripts use `edison_client.EdisonClient` with:
-- `api_key` from environment `EDISON_API_KEY`
-- `run_tasks_until_done()` for blocking submission
-- `acreate_task()` / `aget_task()` for async batch operations
-- `JobNames` enum mapping skill names: `LITERATURE`, `PRECEDENT`, `MOLECULES`, `ANALYSIS`, `DUMMY`
+All scripts use `edison_client.EdisonClient`:
+- `api_key` from `EDISON_API_KEY` env var
+- `run_tasks_until_done(task)` — blocking submission
+- `acreate_task(task)` / `aget_task(task_id)` — async batch ops
+- `JobNames` enum: `LITERATURE`, `PRECEDENT`, `MOLECULES`, `ANALYSIS`, `DUMMY` (plus `LITERATURE_HIGH` if the installed `edison-client` version supports it)
 
-## Common Development Commands
+Use `JobNames.DUMMY` for connectivity tests without consuming API credits.
 
-### Initial Setup (run from project root)
-
-**Recommended: Using `uv` (fast, deterministic)**
+## Setup
 
 ```bash
-# 1. Install uv if not already installed
+# 1. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Create virtual environment and install dependencies
-bash edison-skills/edison-setup/scripts/setup_venv.sh
-# ^ Script detects uv and uses it automatically; falls back to pip if uv unavailable
+# 2. Create venv and install dependencies (one-time)
+bash edison-setup/scripts/setup_venv.sh
 
 # 3. Configure API key
-cp .env.example .env  # then edit .env and replace your_api_key_here
+cp .env.example .env   # edit .env, set EDISON_API_KEY=<your_key>
 
-# 4. Verify connectivity
-.venv/bin/python edison-skills/edison-setup/scripts/test_connection.py
+# 4. Verify
+uv run edison-setup/scripts/check_environment.py --ping
 ```
 
-**Alternative: Using standard `pip` (if `uv` not available)**
-
-The setup script falls back to `pip` automatically, but for faster, more reliable environments, `uv` is strongly recommended.
-
-### Activating the Virtual Environment
-
-```bash
-# Activate for the current shell session
-source .venv/bin/activate
-
-# Or invoke scripts directly without activation
-.venv/bin/python edison-skills/<skill>/scripts/<script>.py <args>
-```
-
-### Configure Output Directory (Optional)
-
-By default, scripts save to the `--output` path you specify. We recommend creating a dedicated output directory and setting an environment variable for easy access:
-
-**Create the output directory:**
-```bash
-# Linux/Mac
-mkdir -p ~/Documents/Edison-Outputs
-
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path "$HOME\Documents\Edison-Outputs"
-```
-
-**Set environment variable in your shell (add to .bashrc or .zshrc):**
-
-> Note: Scripts do NOT read `EDISON_OUTPUT_DIR` from `.env` — it is only a shell convenience for your own `--output` arguments. Do not add it to `.env`.
-
-```bash
-# Add to ~/.bashrc or ~/.zshrc (Linux/Mac)
-export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
-```
-
-**Use in commands:**
-```bash
-# Assuming EDISON_OUTPUT_DIR is set
-.venv/bin/python edison-skills/edison-literature/scripts/literature_search.py \
-    --query "Your question" \
-    --output $EDISON_OUTPUT_DIR/$(date +%Y-%m-%d)_topic.md
-```
-
-### Run Individual Skills
+## Running Skills
 
 ```bash
 # Literature search
-.venv/bin/python edison-skills/edison-literature/scripts/literature_search.py \
-    --query "Your scientific question" \
-    --output results/answer.md
+uv run edison-literature/scripts/literature_search.py \
+    --query "Your scientific question" --output results/answer.md
 
 # Precedent check
-.venv/bin/python edison-skills/edison-precedent/scripts/precedent_search.py \
-    --query "Has anyone done X?" \
-    --output results/precedent.md
+uv run edison-precedent/scripts/precedent_search.py \
+    --query "Has anyone done X?" --output results/precedent.md
 
-# Chained follow-up (reuse papers/context from prior task)
-.venv/bin/python edison-skills/edison-literature/scripts/literature_search.py \
-    --query "Which mechanisms are druggable?" \
-    --continued-from <task_id_from_prior_run> \
-    --output results/followup.md
+# Molecular design
+uv run edison-molecules/scripts/chemistry_task.py \
+    --query "Design a compound that..." --output results/molecules.md
 
-# Batch async submission
-.venv/bin/python edison-skills/edison-async/scripts/async_batch.py \
-    --input queries.jsonl \
-    --output results/batch.md
+# Data analysis (file or inline data)
+uv run edison-analysis/scripts/data_analysis.py \
+    --query "Are any genes downregulated?" --data path/to/data.csv --output results/analysis.md
+uv run edison-analysis/scripts/data_analysis.py \
+    --query "Describe this data" --data-inline "col1,col2\nval1,val2"
 
-# Submit-only mode (fire-and-forget, save task IDs for later polling)
-.venv/bin/python edison-skills/edison-async/scripts/async_batch.py \
-    --input queries.jsonl \
-    --submit-only \
-    --task-ids-out task_ids.txt
+# Chained follow-up (reuses retrieved papers/context from prior task)
+uv run edison-literature/scripts/literature_search.py \
+    --query "Which mechanisms are druggable?" --continued-from <task_id>
 
-# Poll previously submitted task IDs
-.venv/bin/python edison-skills/edison-async/scripts/async_batch.py \
-    --poll task_ids.txt \
-    --output results/batch.md
+# Async batch: submit + wait
+uv run edison-async/scripts/async_batch.py \
+    --input queries.jsonl --output results/batch.md
 
-# Evaluate all skills (quick connectivity check, free)
-.venv/bin/python edison-skills/edison-evaluation/scripts/evaluate_skills.py --quick
+# Async batch: fire-and-forget, then poll later
+uv run edison-async/scripts/async_batch.py \
+    --input queries.jsonl --submit-only --task-ids-out task_ids.txt
+uv run edison-async/scripts/async_batch.py \
+    --poll task_ids.txt --output results/batch.md
 
-# Evaluate all skills (real queries, uses API credits)
-.venv/bin/python edison-skills/edison-evaluation/scripts/evaluate_skills.py \
-    --skill all \
-    --full \
-    --output results/skill_evaluation.md
+# Evaluation: quick (free, DUMMY only)
+uv run edison-evaluation/scripts/evaluate_skills.py --quick
+
+# Evaluation: full (uses API credits)
+uv run edison-evaluation/scripts/evaluate_skills.py \
+    --skill all --full --output results/skill_evaluation.md
 ```
-
-## Key Files to Know
-
-| File | Purpose |
-|------|---------|
-| `README.md` | User-facing overview, quick start, task chaining examples |
-| `.gitignore` | Standard exclusions (`.env`, `.venv/`, results, etc.) |
-| `edison-setup/SKILL.md` | Setup skill definition, prerequisites, error handling |
-| `edison-setup/scripts/setup_venv.sh` | Creates `.venv/`, installs `edison-client` + `python-dotenv` |
-| `edison-setup/scripts/check_environment.py` | Pre-flight environment validation before any skill executes |
-| `edison-setup/scripts/test_connection.py` | Validates API key and platform connectivity |
-| `edison-literature/scripts/literature_search.py` | Main entry point for literature searches; supports `--continued-from`, `--verbose` |
-| `edison-async/scripts/async_batch.py` | Concurrent batch submission/polling; supports JSONL input and task ID persistence |
-| `edison-evaluation/scripts/evaluate_skills.py` | Test and report on all skill health and performance |
 
 ## Development Notes
 
-### Adding a New Script to an Existing Skill
+### Adding a Script to an Existing Skill
 
-1. Create the script at `<skill>/scripts/<name>.py`
+1. Create at `<skill>/scripts/<name>.py`
 2. Follow the standard pattern:
-   - Load `.env` from project root via `python-dotenv`
-   - Import `EdisonClient` and `JobNames` (with graceful ImportError fallback)
-   - Accept `--output` for optional file saving
-   - Print task ID to stderr for chaining
-   - Return exit code 2 on "no successful answer" (see `literature_search.py`)
-3. Update the `SKILL.md` with new usage examples if the skill's interface changes
+   - Load `.env` by walking up via `python-dotenv`
+   - Import `EdisonClient` and `JobNames` with `ImportError` fallback that exits 1
+   - Accept `--output`, `--continued-from`, optionally `--verbose`
+   - Print task ID to stderr after completion
+   - Exit 2 on `has_successful_answer == False`
+3. Update the skill's `SKILL.md` if the interface changes
 
-### Testing Without API Key
+### JSONL Batch Format
 
-Use `JobNames.DUMMY` for connectivity tests (see `test_connection.py`):
-```python
-response = client.run_tasks_until_done({"name": JobNames.DUMMY, "query": "ping"})
-```
-
-### Task Chaining Workflow
-
-1. Run initial query, capture task ID from stderr
-2. For follow-up, pass task ID via `--continued-from`
-3. The platform reuses the same retrieved papers/context — faster and more coherent
-
-### JSONL Format for Batch Queries
-
-Each line is a JSON task object:
 ```json
 {"name": "LITERATURE", "query": "What is X?"}
 {"name": "MOLECULES", "query": "Design Y compound"}
 {"name": "ANALYSIS", "query": "Analyze dataset Z"}
 ```
 
-Comments and blank lines are ignored. Invalid JSON or missing `name`/`query` fields cause the script to exit with status 1.
+Comments (`#`) and blank lines are ignored. `name` must be a valid `JobNames` key.
+
+### Data Size Limit
+
+`data_analysis.py` truncates inline data at 20,000 characters (`MAX_DATA_CHARS`). Pre-filter large datasets before submitting.
 
 ## Environment
 
-### Requirements
-
 - **Python**: 3.10+ on PATH
-- **Virtual environment**: Uses `.venv/` at project root (created by `setup_venv.sh`)
-- **Key dependencies**: `edison-client`, `python-dotenv`
-
-### Package Manager: `uv` (Recommended)
-
-The `setup_venv.sh` script automatically detects and uses `uv` if available. For the best experience:
-
-1. **Install `uv`** (one-time):
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-2. **Run setup** as usual — it will use `uv` automatically:
-   ```bash
-   bash edison-skills/edison-setup/scripts/setup_venv.sh
-   ```
-
-Benefits of `uv`:
-- **~10x faster** than `pip` for dependency resolution
-- **Deterministic** — reproducible environments across machines
-- Built-in virtual environment management
-
-**Fallback**: If `uv` is not installed, the setup script silently falls back to `pip`.
-
-### API Configuration
-
-- **API endpoint**: https://platform.edisonscientific.com (configured in `edison-client`)
-- **API key source**: https://platform.edisonscientific.com/profile
-- **Storage**: `.env` file at project root (never committed — add to `.gitignore`)
-
-The `.env` file is **never** committed and contains sensitive credentials.
-
-## Integration Points
-
-All skills are **environment-agnostic**: the same `SKILL.md` and Python scripts work identically in Claude Code, Claude Cowork, and standalone CLI usage. For detailed integration examples and differences, see the README's "Integration: Claude Code vs. Claude Cowork" section.
-
-### Claude Code Workflow
-
-1. User gives Claude Code a prompt referencing a SKILL.md
-2. Claude reads the SKILL.md and invokes the adjacent Python script
-3. Script output appears in chat; files saved to `--output` path
-4. Results ready for manual copying to notes/Obsidian
-
-**Best practices:**
-- Reference `SKILL.md` files by name in prompts
-- Use absolute paths or `$HOME` in `--output` arguments
-- Set `EDISON_OUTPUT_DIR` in your shell profile for convenience (not in `.env` — scripts don't read it)
-
-### Claude Cowork Workflow
-
-1. User creates a desktop task flow that invokes scripts
-2. Cowork detects `.env` and `.venv/` automatically
-3. Scripts run on a schedule or trigger, saving results to files
-4. `obsidian-mcp` or similar integrations auto-import results
-
-**Best practices:**
-- Set `EDISON_OUTPUT_DIR` in your shell environment (not `.env` — scripts don't read it)
-- Use templated paths in task definitions (e.g., `$(date)_result.md`)
-- Chain skills using task IDs for follow-up queries
-
-### Standalone CLI
-
-Scripts can also be invoked directly from terminal:
-```bash
-.venv/bin/python edison-skills/edison-<skill>/scripts/<script>.py <args>
-```
-
-This is useful for testing, scripting, and integration with external tools.
-
-## Project Organization
-
-Recommended folder structures for different workflows:
-
-### Claude Code Project (Recommended)
-
-```
-~/Projects/
-├── edison-skills/                    ← This repository
-│   ├── .env                          ← Your API key (git-ignored)
-│   ├── .venv/                        ← Virtual environment (git-ignored)
-│   ├── CLAUDE.md
-│   ├── README.md
-│   └── edison-*/
-└── research-notes/                   ← Optional: separate repo for notes
-```
-
-**Setup:**
-```bash
-cd ~/Projects
-git clone https://github.com/MungoHarvey/edison-api-skill.git edison-skills
-cd edison-skills
-bash edison-skills/edison-setup/scripts/setup_venv.sh
-cp .env.example .env  # then edit .env to add your EDISON_API_KEY
-.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
-```
-
-### With Output Directory
-
-```
-~/Documents/
-├── Edison-Outputs/                   ← Results from all queries
-│   ├── 2025-03-05_tdp43_literature.md
-│   ├── 2025-03-05_als_precedent.md
-│   └── 2025-03-06_aspirin_molecules.md
-```
-
-**Reference in scripts:**
-```bash
-export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
-# Now use: --output $EDISON_OUTPUT_DIR/filename.md
-```
-
-### With Obsidian Integration (Optional)
-
-```
-~/Library/Mobile Documents/iCloud~md~obsidian/Documents/
-└── MyVault/
-    └── AI-Usage-Log/
-        └── edison/                   ← Auto-imported query results
-            ├── 2025-03-05_tdp43.md
-            └── 2025-03-06_molecules.md
-```
-
-**Update `.env` to point to Obsidian:**
-```bash
-EDISON_OUTPUT_DIR="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyVault/AI-Usage-Log/edison"
-```
-
-Or on Windows:
-```bash
-EDISON_OUTPUT_DIR="%USERPROFILE%\AppData\Local\Obsidian\vault-name\AI-Usage-Log\edison"
-```
-
----
-
-## GitHub Repository
-
-This repository is version-controlled and hosted on GitHub:
-
-**Remote:** `https://github.com/MungoHarvey/edison-api-skill.git`
-
-**Pushing changes:**
-```bash
-git add .
-git commit -m "Your message"
-git push origin main
-```
-
-**Key files tracked:**
-- All source files (`*.py`, `*.sh`, `*.md`)
-- `.gitignore` (standard Python + venv exclusions)
-- Excluded from git: `.env`, `.venv/`, `results/`, `__pycache__/`, `Edison-Outputs/`
-
-**Cloning for new environments:**
-```bash
-git clone https://github.com/MungoHarvey/edison-api-skill.git
-cd edison-api-skill
-bash edison-skills/edison-setup/scripts/setup_venv.sh
-cp .env.example .env  # then edit .env to add your EDISON_API_KEY
-.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py
-```
+- **uv**: Recommended package runner — handles dependencies automatically via PEP 723 inline metadata
+- **Dependencies**: `edison-client`, `python-dotenv` (declared inline in each script)
+- **API endpoint**: `https://platform.edisonscientific.com` (configured in `edison-client`)
+- **API key source**: `https://platform.edisonscientific.com/profile`
+- **SessionStart hook**: Automatically checks for `uv`, `.env`, and `EDISON_API_KEY` when Claude Code starts

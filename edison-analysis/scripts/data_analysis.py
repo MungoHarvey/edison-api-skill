@@ -10,6 +10,9 @@ Usage:
     python data_analysis.py --query "..." --data path/to/data.csv --output results/report.md
     python data_analysis.py --query "..." --continued-from <task_id>
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import argparse
 import os

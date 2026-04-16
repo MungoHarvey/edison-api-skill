@@ -10,6 +10,9 @@ Usage:
     python chemistry_task.py --query "..." --continued-from <task_id>
     python chemistry_task.py --query "..." --output results/design.md
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import argparse
 import os

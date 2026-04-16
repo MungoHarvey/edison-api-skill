@@ -1,21 +1,23 @@
 ---
 name: edison-molecules
 description: >
-  Run chemistry and molecular design tasks using Edison's Phoenix agent (ChemCrow
-  iteration). Use when planning chemical synthesis, designing novel molecules,
-  evaluating drug-likeness, or querying cheminformatics properties. This skill is
-  distinct from literature or precedent search — it actively uses cheminformatics
-  tools to reason about chemistry.
+  This skill should be used when the user asks about chemistry, molecular design,
+  synthesis routes, drug-likeness, ADMET properties, or cheminformatics. Use when
+  the user asks to "design a molecule", "plan a synthesis", "evaluate drug-like
+  properties", "suggest analogues", "predict ADMET", or provides a SMILES string
+  and wants chemical analysis. Distinct from literature search — this skill actively
+  uses cheminformatics tools to reason about chemistry, not just retrieve papers.
+version: 0.1.0
 ---
 
 # Edison Molecules (Chemistry Tasks)
 
 ## Purpose
 
-This skill invokes `JobNames.MOLECULES` — the Edison Phoenix/ChemCrow agent equipped
-with cheminformatics tools for active chemical reasoning.
+Invoke `JobNames.MOLECULES` — the Edison Phoenix/ChemCrow agent equipped with
+cheminformatics tools for active chemical reasoning.
 
-**Use this skill when:**
+**Use for:**
 - Planning synthesis routes for small molecules
 - Designing novel molecular scaffolds or analogues
 - Querying drug-like properties (ADMET, Lipinski, solubility)
@@ -23,16 +25,15 @@ with cheminformatics tools for active chemical reasoning.
 - Exploring SAR (structure-activity relationship) hypotheses
 
 **Do NOT use for:**
-- General literature questions about a drug → use `edison-literature`
-- Checking if a compound has been synthesised before → use `edison-precedent`
+- General literature questions about a drug — use `edison-literature`
+- Checking if a compound has been synthesised before — use `edison-precedent`
 
 ---
 
 ## Prerequisites
 
-- Edison environment configured (run `edison-setup` skill first)
-- `.env` file with `EDISON_API_KEY` set
-- **Run pre-flight check:** `.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py`
+- Edison environment configured (run `edison-setup` skill first if uncertain)
+- `.env` file with `EDISON_API_KEY` set at project root
 
 ---
 
@@ -41,14 +42,14 @@ with cheminformatics tools for active chemical reasoning.
 ### Basic chemistry query
 
 ```bash
-.venv/bin/python edison-skills/edison-molecules/scripts/chemistry_task.py \
+uv run edison-molecules/scripts/chemistry_task.py \
     --query "Design a small molecule inhibitor of TDP-43 aggregation with good CNS penetrance"
 ```
 
-### Synthesis planning
+### Synthesis planning with SMILES
 
 ```bash
-.venv/bin/python edison-skills/edison-molecules/scripts/chemistry_task.py \
+uv run edison-molecules/scripts/chemistry_task.py \
     --query "Plan a synthetic route for compound with SMILES: CC(=O)Nc1ccc(O)cc1" \
     --output results/synthesis_plan.md
 ```
@@ -56,7 +57,7 @@ with cheminformatics tools for active chemical reasoning.
 ### Follow-up / iterative refinement
 
 ```bash
-.venv/bin/python edison-skills/edison-molecules/scripts/chemistry_task.py \
+uv run edison-molecules/scripts/chemistry_task.py \
     --query "From the previous design, suggest modifications to improve blood-brain barrier penetrance" \
     --continued-from <task_id>
 ```
@@ -93,29 +94,11 @@ With `--output`, saved as a structured Markdown document.
 
 ---
 
-## Claude Code Integration
-
-```
-Use the Edison molecules skill to design a series of TDP-43 disaggregation compounds.
-Start with the scaffold CC1=CC=C(C=C1)NC(=O)CN and suggest three analogues
-with improved solubility. Save to results/tdp43_analogues.md
-```
-
-## Claude Cowork Integration
-
-Cowork can run iterative design loops:
-1. Submit initial design query
-2. Capture task ID
-3. Submit follow-up query to refine, using `--continued-from`
-4. Aggregate all iterations into a design log
-
----
-
 ## Notes on Output Quality
 
 - The Phoenix agent uses real cheminformatics tools; results include SMILES, predicted
   properties, and reasoning chains — not just text summaries.
-- For complex multi-step synthesis, enable `--verbose` to inspect the full agent state
+- For complex multi-step synthesis, use `--verbose` to inspect the full agent state
   and tool call trace.
 - SMILES in the output can be copied directly into tools like RDKit, ChemDraw, or
   PyMOL for visualisation.

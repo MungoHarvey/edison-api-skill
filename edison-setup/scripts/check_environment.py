@@ -11,6 +11,9 @@ Exit codes:
   1 = hard failure (broken venv, cannot recover)
   2 = soft failure (missing API key — needs user action)
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import sys
 import os
@@ -90,7 +93,7 @@ def check_edison_client():
         print("  Attempting to auto-repair: running setup_venv.sh ...", file=sys.stderr)
 
         project_root = find_project_root()
-        setup_script = project_root / "edison-skills" / "edison-setup" / "scripts" / "setup_venv.sh"
+        setup_script = project_root / "edison-setup" / "scripts" / "setup_venv.sh"
 
         if not setup_script.exists():
             print(f"✗ setup_venv.sh not found at {setup_script}", file=sys.stderr)

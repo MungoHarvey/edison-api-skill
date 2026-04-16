@@ -11,6 +11,9 @@ Usage:
     python literature_search.py --query "..." --continued-from <task_id>
     python literature_search.py --query "..." --output results/answer.md
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import argparse
 import os
@@ -38,15 +41,36 @@ except ImportError:
     sys.exit(1)
 
 
-def build_task(query: str, verbose: bool, continued_from: str | None) -> TaskRequest:
-    """Construct the TaskRequest with optional chaining and verbosity."""
+def _has_literature_high() -> bool:
+    """Check at runtime whether LITERATURE_HIGH is available in the installed package."""
+    return hasattr(JobNames, "LITERATURE_HIGH")
+
+
+def build_task(query: str, verbose: bool, continued_from: str | None,
+               high: bool = False) -> TaskRequest:
+    """Construct the TaskRequest with optional chaining, verbosity, and high-reasoning mode."""
     runtime_config = {}
 
     if continued_from:
         runtime_config["continued_job_id"] = continued_from
 
+    if high:
+        if not _has_literature_high():
+            print(
+                "✗ LITERATURE_HIGH is not available in the installed edison-client.\n"
+                "  Run: python -c \"from edison_client import JobNames; "
+                "print([j.name for j in JobNames])\"\n"
+                "  to see available job types. Install a newer version of "
+                "edison-client if needed.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        job_name = JobNames.LITERATURE_HIGH
+    else:
+        job_name = JobNames.LITERATURE
+
     return TaskRequest(
-        name=JobNames.LITERATURE,
+        name=job_name,
         query=query,
         runtime_config=runtime_config if runtime_config else None,
     )
@@ -97,6 +121,9 @@ def main():
                         help="Return full agent state and environment frame")
     parser.add_argument("--continued-from", metavar="TASK_ID",
                         help="Chain this query as a follow-up to a prior task")
+    parser.add_argument("--high", action="store_true",
+                        help="Use LITERATURE_HIGH (state-of-the-art reasoning, slower, "
+                             "more credits). Requires compatible edison-client version.")
     parser.add_argument("--output", metavar="PATH",
                         help="Save formatted Markdown output to this file path")
     args = parser.parse_args()
@@ -107,10 +134,15 @@ def main():
         sys.exit(1)
 
     client = EdisonClient(api_key=api_key)
-    task = build_task(args.query, args.verbose, args.continued_from)
+    task = build_task(args.query, args.verbose, args.continued_from, high=args.high)
 
     print(f"Submitting literature query: {args.query!r}", file=sys.stderr)
-    print("Waiting for response (this may take 30–120 seconds) ...", file=sys.stderr)
+    wait_msg = (
+        "Waiting for response (LITERATURE_HIGH may take 3–10 minutes) ..."
+        if args.high
+        else "Waiting for response (this may take 30–120 seconds) ..."
+    )
+    print(wait_msg, file=sys.stderr)
 
     response = client.run_tasks_until_done(task, verbose=args.verbose)
 

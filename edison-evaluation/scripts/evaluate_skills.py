@@ -18,6 +18,9 @@ Usage:
   # Specific skill
   python evaluate_skills.py --skill literature --full --output results/eval.md
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import sys
 import os
@@ -49,10 +52,17 @@ except ImportError as e:
     print(f"✗ Import failed: {e}\n  Run setup_venv.sh to install dependencies.", file=sys.stderr)
     sys.exit(1)
 
+
+def _has_literature_high() -> bool:
+    """Check at runtime whether LITERATURE_HIGH is available in the installed package."""
+    return hasattr(JobNames, "LITERATURE_HIGH")
+
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 TEST_QUERIES = {
     "literature": "What is the role of TDP-43 in ALS pathogenesis?",
+    "literature_high": "What is the role of TDP-43 in ALS pathogenesis?",
     "precedent": "Has anyone performed iPSC differentiation to motor neurons for ALS modelling?",
     "molecules": "What is the SMILES for aspirin?",
     "analysis": None,  # Special case: embedded CSV
@@ -107,6 +117,8 @@ def evaluate_skill(client, skill_type, query):
         "molecules": JobNames.MOLECULES,
         "analysis": JobNames.ANALYSIS,
     }
+    if _has_literature_high():
+        job_name_map["literature_high"] = JobNames.LITERATURE_HIGH
 
     if skill_type not in job_name_map:
         return {"pass": False, "latency": 0, "answer": "Unknown skill type"}
@@ -125,8 +137,12 @@ def evaluate_skill(client, skill_type, query):
         has_successful_answer = getattr(response, 'has_successful_answer', False)
         answer = getattr(response, 'formatted_answer', getattr(response, 'answer', ''))
 
-        # Count citations for literature
-        citations = len(re.findall(r'\[\d+\]', str(answer))) if skill_type == "literature" else None
+        # Count citations for literature / literature_high
+        citations = (
+            len(re.findall(r'\[\d+\]', str(answer)))
+            if skill_type in ("literature", "literature_high")
+            else None
+        )
 
         return {
             "pass": has_successful_answer,
@@ -254,9 +270,10 @@ def main():
     )
     parser.add_argument(
         "--skill",
-        choices=["literature", "precedent", "molecules", "analysis", "all"],
+        choices=["literature", "literature_high", "precedent", "molecules", "analysis", "all"],
         default="all",
-        help="Skill to evaluate (default: all)"
+        help="Skill to evaluate (default: all). Note: literature_high is excluded from "
+             "'all' — test it explicitly with --skill literature_high --full."
     )
     parser.add_argument(
         "--full",
@@ -279,9 +296,23 @@ def main():
     mode = "full" if args.full else "quick"
 
     # Determine skills to test
+    # Note: literature_high is excluded from 'all' — slow and expensive by default.
+    # Test it explicitly with --skill literature_high --full.
     skills_to_test = ["all"] if args.skill == "all" else [args.skill]
     if skills_to_test == ["all"]:
         skills_to_test = ["literature", "precedent", "molecules", "analysis"]
+
+    # Guard: check LITERATURE_HIGH availability before running it
+    if "literature_high" in skills_to_test and not _has_literature_high():
+        print(
+            "✗ LITERATURE_HIGH is not available in the installed edison-client.\n"
+            "  Run: python -c \"from edison_client import JobNames; "
+            "print([j.name for j in JobNames])\"\n"
+            "  to see available job types. Install a newer version of "
+            "edison-client if needed.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     print(f"=== Edison Skill Evaluation ({mode.upper()}) ===", file=sys.stderr)
     print(f"Skills: {', '.join(skills_to_test)}", file=sys.stderr)
@@ -321,8 +352,8 @@ def main():
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(report)
         print(f"\n✓ Report saved to {output_path.absolute()}", file=sys.stderr)
-
-    print(report)
+    else:
+        print(report)
 
     # Exit code: 0 if all pass, 1 if any fail
     all_pass = all(results[s]["pass"] for s in results)

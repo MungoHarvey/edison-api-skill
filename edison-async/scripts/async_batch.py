@@ -15,6 +15,9 @@ Usage:
     # Poll previously submitted task IDs
     python async_batch.py --poll ids.txt --output results/batch.md
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import argparse
 import asyncio
@@ -52,6 +55,9 @@ JOB_NAME_MAP = {
     "ANALYSIS":   JobNames.ANALYSIS,
     "DUMMY":      JobNames.DUMMY,
 }
+# Conditionally add LITERATURE_HIGH if supported by the installed package
+if hasattr(JobNames, "LITERATURE_HIGH"):
+    JOB_NAME_MAP["LITERATURE_HIGH"] = JobNames.LITERATURE_HIGH
 
 POLL_INTERVAL_SECS = 15
 MAX_POLL_ATTEMPTS  = 120  # ~30 minutes total

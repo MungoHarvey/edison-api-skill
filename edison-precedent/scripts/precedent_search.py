@@ -10,6 +10,9 @@ Usage:
     python precedent_search.py --batch queries.txt --output results/out.md
     python precedent_search.py --query "..." --continued-from <task_id>
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import argparse
 import os

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # edison-setup/scripts/setup_venv.sh
 # Creates a virtual environment and installs edison-client.
-# Run from the project root: bash edison-skills/edison-setup/scripts/setup_venv.sh
+# Run from the project root: bash edison-setup/scripts/setup_venv.sh
 
 set -euo pipefail
 

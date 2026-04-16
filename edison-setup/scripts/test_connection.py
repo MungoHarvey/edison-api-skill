@@ -5,6 +5,9 @@ edison-setup/scripts/test_connection.py
 Validates that the Edison client is installed, the API key is present,
 and the platform is reachable via a lightweight Dummy task.
 """
+# /// script
+# dependencies = ["edison-client", "python-dotenv"]
+# ///
 
 import sys
 import os

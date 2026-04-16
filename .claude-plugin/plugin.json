@@ -1,0 +1,9 @@
+{
+  "name": "edison-scientific",
+  "version": "0.1.0",
+  "description": "Edison Scientific API skills for Claude Code — cited literature search, precedent checking, molecular design, biological dataset analysis, and async batch operations.",
+  "author": {
+    "name": "Mungo Harvey",
+    "email": "mungo@the-harveys.org"
+  }
+}

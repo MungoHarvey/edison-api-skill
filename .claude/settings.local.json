@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:docs.edisonscientific.com)",
+      "Bash(uv run python -c \"from edison_client import JobNames; names=[j.name for j in JobNames]; print\\(names\\); print\\('LITERATURE_HIGH available:', 'LITERATURE_HIGH' in names\\)\")",
+      "Bash(chmod +x *)"
+    ]
+  }
+}

@@ -1,37 +1,38 @@
 ---
 name: edison-precedent
 description: >
-  Query the Edison Precedent agent (formerly "HasAnyone") to determine whether
-  something has been done before in science. Use for binary or near-binary questions
-  about scientific precedent: "Has anyone used X to treat Y?", "Has X been tested in
-  model Z?". Returns a direct yes/no with supporting evidence. Distinct from Literature
-  search, which synthesises open-ended scientific questions.
+  This skill should be used when the user asks a binary scientific precedent question
+  such as "has anyone done X", "has X been tested in Y", "has this been tried before",
+  "is there precedent for X", or "has anyone used X to treat Y". Use for targeted
+  yes/no feasibility checks against the scientific literature — not for open-ended
+  review questions (use edison-literature for those) or chemistry tasks (use
+  edison-molecules for those).
+version: 0.1.0
 ---
 
 # Edison Precedent Search
 
 ## Purpose
 
-This skill invokes `JobNames.PRECEDENT` — the Edison "HasAnyone" agent — designed to
-answer targeted precedent questions with a clear yes/no and cited supporting evidence.
+Invoke `JobNames.PRECEDENT` — the Edison "HasAnyone" agent — designed to answer
+targeted precedent questions with a clear yes/no and cited supporting evidence.
 
-**Use this skill when:**
-- Asking "Has anyone ever done X?" in a scientific context
+**Use for:**
+- "Has anyone ever done X?" in a scientific context
 - Checking whether a drug/target/model combination has been reported
-- Performing rapid feasibility checks before designing experiments
+- Rapid feasibility checks before designing experiments
 - Scoping a research area to identify gaps vs. existing work
 
 **Do NOT use for:**
-- Open-ended mechanistic or review questions → use `edison-literature`
-- Chemistry synthesis planning → use `edison-molecules`
+- Open-ended mechanistic or review questions — use `edison-literature`
+- Chemistry synthesis planning — use `edison-molecules`
 
 ---
 
 ## Prerequisites
 
-- Edison environment configured (run `edison-setup` skill first)
-- `.env` file with `EDISON_API_KEY` set
-- **Run pre-flight check:** `.venv/bin/python edison-skills/edison-setup/scripts/check_environment.py`
+- Edison environment configured (run `edison-setup` skill first if uncertain)
+- `.env` file with `EDISON_API_KEY` set at project root
 
 ---
 
@@ -40,24 +41,24 @@ answer targeted precedent questions with a clear yes/no and cited supporting evi
 ### Single precedent query
 
 ```bash
-.venv/bin/python edison-skills/edison-precedent/scripts/precedent_search.py \
+uv run edison-precedent/scripts/precedent_search.py \
     --query "Has anyone tested antisense oligonucleotides targeting TDP-43 in ALS patient iPSC-derived motor neurons?"
 ```
 
 ### Batch mode — multiple queries from a text file
 
 ```bash
-.venv/bin/python edison-skills/edison-precedent/scripts/precedent_search.py \
+uv run edison-precedent/scripts/precedent_search.py \
     --batch queries.txt \
     --output results/precedent_results.md
 ```
 
-Where `queries.txt` contains one question per line.
+`queries.txt` is plain text — one question per line, blank lines ignored. This is not JSONL format; do not use the JSONL files from `edison-async` here.
 
 ### Follow-up chaining
 
 ```bash
-.venv/bin/python edison-skills/edison-precedent/scripts/precedent_search.py \
+uv run edison-precedent/scripts/precedent_search.py \
     --query "From the prior answer, which studies used human samples?" \
     --continued-from <task_id>
 ```
@@ -82,7 +83,7 @@ With `--output`, results are saved as structured Markdown with one section per q
 
 ## Batch Query File Format
 
-`queries.txt` — one question per line, blank lines ignored:
+`queries.txt` — one question per line:
 
 ```
 Has anyone tested NAC in ALS mouse models?
@@ -101,21 +102,6 @@ Has anyone done CRISPR screen in iPSC motor neurons for ALS?
 
 A `False` result does **not** mean the thing has never been done — it may mean the
 literature is sparse or the query needs refinement. Always verify borderline results.
-
----
-
-## Claude Code Integration
-
-```
-Use the Edison precedent search to check:
-"Has anyone performed DRUGseq screening in iPSC-derived motor neurons?"
-Save the result to results/drugseq_precedent.md
-```
-
-## Claude Cowork Integration
-
-Cowork can loop over a list of compounds or targets and invoke the precedent script
-for each, aggregating results into a single summary document.
 
 ---
 
