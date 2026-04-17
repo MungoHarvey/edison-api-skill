@@ -17,7 +17,7 @@ PYTHON_VERSION=$("$PYTHON" -c "import sys; print(f'{sys.version_info.major}.{sys
 MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
 MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
 if [ "$MAJOR" -lt 3 ] || { [ "$MAJOR" -eq 3 ] && [ "$MINOR" -lt 11 ]; }; then
-    echo "ERROR: Python 3.11+ required (edison-client>=0.9.0 needs 3.11+)." >&2
+    echo "ERROR: Python 3.11+ required (edison-client needs 3.11+)." >&2
     echo "       Found: $PYTHON_VERSION. Install Python 3.11+ and ensure it is on PATH." >&2
     exit 1
 fi
@@ -52,10 +52,10 @@ fi
 # Install/upgrade packages
 echo "Installing edison-client and python-dotenv ..."
 if command -v uv &>/dev/null; then
-    uv pip install --python "$VENV_PY" "edison-client>=0.9.0" python-dotenv
+    uv pip install --python "$VENV_PY" "edison-client" python-dotenv
 else
     "$VENV_PIP" install --upgrade pip
-    "$VENV_PIP" install "edison-client>=0.9.0" python-dotenv
+    "$VENV_PIP" install "edison-client" python-dotenv
 fi
 
 # Verify import

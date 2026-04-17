@@ -7,13 +7,13 @@ any Edison skill executes. Auto-repairs where possible (e.g., re-runs setup_venv
 if imports fail).
 
 Exit codes:
-  0 = environment ready
-  1 = hard failure (broken venv, cannot recover)
+  0 = environment ready (includes ping 404 — platform-side issue, key is fine)
+  1 = hard failure (broken venv, auth error, cannot recover)
   2 = soft failure (missing API key — needs user action)
 """
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["edison-client>=0.9.0", "python-dotenv"]
+# dependencies = ["edison-client", "python-dotenv"]
 # ///
 
 import sys
@@ -30,8 +30,8 @@ def find_project_root():
         if (root / ".git").is_dir():
             return root
         root = root.parent
-    # Fallback: 5 levels up from script directory
-    return Path(__file__).resolve().parents[4]
+    # Fallback: 4 levels up from script directory (skills/edison-setup/scripts/ → project root)
+    return Path(__file__).resolve().parents[3]
 
 
 def check_dotenv():
@@ -106,6 +106,7 @@ def check_edison_client():
             print("  Hint: re-create venv with: uv venv --python 3.11", file=sys.stderr)
             return False, None, None
 
+        print(f"  Import failed: {import_err}", file=sys.stderr)
         # Try auto-repair: run setup_venv.sh
         print("  Attempting to auto-repair: running setup_venv.sh ...", file=sys.stderr)
 
@@ -158,6 +159,8 @@ def ping_platform(client_class):
         return True
     except Exception as e:
         msg = str(e).lower()
+        # "not found" catches both "404 not found" (HTTP status text) and
+        # "resource not found" (library error text) — both treated as indeterminate.
         if "404" in msg or "not found" in msg:
             print("  ⚠ Ping endpoint returned 404 (known platform issue).", file=sys.stderr)
             print("    Your API key and setup are likely fine.", file=sys.stderr)

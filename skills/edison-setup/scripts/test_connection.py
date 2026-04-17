@@ -7,7 +7,7 @@ and the platform is reachable via a lightweight Dummy task.
 """
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["edison-client>=0.9.0", "python-dotenv"]
+# dependencies = ["edison-client", "python-dotenv"]
 # ///
 
 import sys

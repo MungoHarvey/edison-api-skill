@@ -1,7 +1,7 @@
 """Tests for .env walk-up logic used in all scripts."""
 import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -14,12 +14,8 @@ def _run_walkup(script_dir: Path, env: dict | None = None):
         loaded.append(Path(path))
 
     env = env or {}
-    fake_dotenv_mod = MagicMock()
-    fake_dotenv_mod.load_dotenv = fake_load_dotenv
 
-    with patch.dict(os.environ, env, clear=False), \
-         patch("builtins.__import__", side_effect=_make_import_hook(fake_dotenv_mod)):
-        # Simulate the preamble with the given script_dir as __file__'s parent
+    with patch.dict(os.environ, env, clear=False):
         try:
             _env_file = os.environ.get("EDISON_ENV_FILE")
             if _env_file:
@@ -40,17 +36,6 @@ def _run_walkup(script_dir: Path, env: dict | None = None):
             pass
 
     return loaded
-
-
-def _make_import_hook(fake_dotenv_mod):
-    real_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
-
-    def hook(name, *args, **kwargs):
-        if name == "dotenv":
-            return fake_dotenv_mod
-        return real_import(name, *args, **kwargs)
-
-    return hook
 
 
 def test_edison_env_file_overrides_walkup(tmp_path):

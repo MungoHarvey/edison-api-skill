@@ -129,7 +129,7 @@ Wait for the user to confirm before continuing.
 uv run skills/edison-setup/scripts/check_environment.py --ping
 ```
 
-- Exit code `0` = ready. Report success.
+- Exit code `0` = ready (includes a `⚠` warning if ping returned 404 — platform-side, key is fine).
 - Exit code `1` = hard failure — show the error output and help the user fix it.
 - Exit code `2` = API key missing or invalid — re-prompt the user to check `.env`.
 
