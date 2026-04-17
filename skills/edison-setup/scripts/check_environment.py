@@ -67,7 +67,7 @@ def check_env_file(project_root, load_dotenv_fn):
     print(f"\n  Expected location: {env_file.absolute()}", file=sys.stderr)
     print(f"\n  To fix:", file=sys.stderr)
     print(f"    1. Create the file at the path above", file=sys.stderr)
-    print(f"    2. Add your API key: EDISON_API_KEY=your_key_here", file=sys.stderr)
+    print(f"    2. Add your API key: EDISON_PLATFORM_API_KEY=your_key_here", file=sys.stderr)
     print(f"    3. Get your key from: https://platform.edisonscientific.com/profile", file=sys.stderr)
     print(f"\n  Or set EDISON_ENV_FILE=/path/to/your/.env to use a custom location.", file=sys.stderr)
 
@@ -75,8 +75,8 @@ def check_env_file(project_root, load_dotenv_fn):
 
 
 def check_api_key():
-    """Check 3: Is EDISON_API_KEY set and non-empty?"""
-    api_key = os.getenv("EDISON_API_KEY", "").strip()
+    """Check 3: Is EDISON_PLATFORM_API_KEY (or legacy EDISON_API_KEY) set and non-empty?"""
+    api_key = (os.getenv("EDISON_PLATFORM_API_KEY", "") or os.getenv("EDISON_API_KEY", "")).strip()
 
     if api_key:
         return True
@@ -85,10 +85,10 @@ def check_api_key():
     project_root = find_project_root()
     env_file = project_root / ".env"
 
-    print(f"\n✗ EDISON_API_KEY not set", file=sys.stderr)
+    print(f"\n✗ EDISON_PLATFORM_API_KEY not set", file=sys.stderr)
     print(f"\n  Edit .env at: {env_file.absolute()}", file=sys.stderr)
     print(f"\n  Add this line:", file=sys.stderr)
-    print(f"    EDISON_API_KEY=your_key_here", file=sys.stderr)
+    print(f"    EDISON_PLATFORM_API_KEY=your_key_here", file=sys.stderr)
     print(f"\n  Get your key from: https://platform.edisonscientific.com/profile", file=sys.stderr)
 
     return False
@@ -150,7 +150,7 @@ def ping_platform(client_class):
 
     Returns True (success), None (indeterminate/404), or False (hard failure).
     """
-    api_key = os.getenv("EDISON_API_KEY")
+    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
     if not api_key:
         return False
     try:
@@ -168,7 +168,7 @@ def ping_platform(client_class):
             return None
         if "401" in msg or "unauthorized" in msg or "forbidden" in msg:
             print(f"  ✗ Authentication failed: {e}", file=sys.stderr)
-            print("    Check that EDISON_API_KEY is correct.", file=sys.stderr)
+            print("    Check that EDISON_PLATFORM_API_KEY is correct.", file=sys.stderr)
         else:
             print(f"  Connectivity check failed: {e}", file=sys.stderr)
         return False
@@ -197,7 +197,7 @@ def main():
     print(f"  ✓ .env found at {env_file}", file=sys.stderr)
 
     # Check 3: API key
-    print("  Check 3: EDISON_API_KEY ...", file=sys.stderr)
+    print("  Check 3: EDISON_PLATFORM_API_KEY ...", file=sys.stderr)
     key_ok = check_api_key()
     if not key_ok:
         sys.exit(2)  # Soft failure
@@ -227,7 +227,7 @@ def main():
     # Success
     print("\n✓ Edison environment is ready", file=sys.stderr)
     print(f"  Project root: {project_root}", file=sys.stderr)
-    print(f"  API key: {os.getenv('EDISON_API_KEY', '')[:10]}...", file=sys.stderr)
+    print(f"  API key: {(os.getenv('EDISON_PLATFORM_API_KEY') or os.getenv('EDISON_API_KEY', ''))[:10]}...", file=sys.stderr)
     sys.exit(0)
 
 

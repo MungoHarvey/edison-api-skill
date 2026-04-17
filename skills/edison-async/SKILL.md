@@ -32,7 +32,7 @@ This skill handles the *how* (async/batch). The other skills define the *what*
 ## Prerequisites
 
 - Edison environment configured (run `edison-setup` skill first if uncertain)
-- `.env` file with `EDISON_API_KEY` set at project root
+- `.env` file with `EDISON_PLATFORM_API_KEY` set at project root
 - Input queries in JSONL format (one JSON object per line)
 
 ---

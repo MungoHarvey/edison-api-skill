@@ -10,7 +10,7 @@ follow the same pattern.
 ## Non-Interactive Shell Environments
 
 Cron jobs, CI pipelines, and subprocess calls do not inherit shell exports. An
-`EDISON_API_KEY` set in `.bashrc` or `.zshrc` will not be available to scripts invoked
+`EDISON_PLATFORM_API_KEY` set in `.bashrc` or `.zshrc` will not be available to scripts invoked
 this way. Scripts must explicitly call `load_dotenv()` to source the `.env` file — and
 the `.env` file must be present at the expected project root path.
 

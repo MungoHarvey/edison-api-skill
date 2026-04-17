@@ -44,9 +44,9 @@ except ImportError as e:
     sys.exit(1)
 
 # ── API key check ─────────────────────────────────────────────────────────────
-api_key = os.getenv("EDISON_API_KEY")
+api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
 if not api_key:
-    print("✗ EDISON_API_KEY not found in environment or .env file", file=sys.stderr)
+    print("✗ EDISON_PLATFORM_API_KEY not found in environment or .env file", file=sys.stderr)
     sys.exit(1)
 print("✓ API key loaded from environment")
 
@@ -64,7 +64,7 @@ except Exception as e:
         print("  Your API key and setup are likely fine.", file=sys.stderr)
         print("  This is a known issue at platform.edisonscientific.com.", file=sys.stderr)
     elif "401" in msg or "unauthorized" in msg or "forbidden" in msg:
-        print(f"✗ Authentication failed — check EDISON_API_KEY: {e}", file=sys.stderr)
+        print(f"✗ Authentication failed — check EDISON_PLATFORM_API_KEY: {e}", file=sys.stderr)
         sys.exit(1)
     else:
         print(f"✗ Platform connection failed: {e}", file=sys.stderr)

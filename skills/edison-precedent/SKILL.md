@@ -32,7 +32,7 @@ targeted precedent questions with a clear yes/no and cited supporting evidence.
 ## Prerequisites
 
 - Edison environment configured (run `edison-setup` skill first if uncertain)
-- `.env` file with `EDISON_API_KEY` set at project root
+- `.env` file with `EDISON_PLATFORM_API_KEY` set at project root
 
 ---
 

@@ -113,9 +113,9 @@ def main():
                         help="Save Markdown results to this file")
     args = parser.parse_args()
 
-    api_key = os.getenv("EDISON_API_KEY")
+    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
     if not api_key:
-        print("✗ EDISON_API_KEY not set in environment or .env", file=sys.stderr)
+        print("✗ EDISON_PLATFORM_API_KEY not set in environment or .env", file=sys.stderr)
         sys.exit(1)
 
     client = EdisonClient(api_key=api_key)

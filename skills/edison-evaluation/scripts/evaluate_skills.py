@@ -326,9 +326,9 @@ def main():
     print(f"Skills: {', '.join(skills_to_test)}", file=sys.stderr)
 
     # Initialize client
-    api_key = os.getenv("EDISON_API_KEY")
+    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
     if not api_key:
-        print("✗ EDISON_API_KEY not set in environment", file=sys.stderr)
+        print("✗ EDISON_PLATFORM_API_KEY not set in environment", file=sys.stderr)
         sys.exit(2)
 
     client = EdisonClient(api_key=api_key)

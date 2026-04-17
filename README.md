@@ -38,13 +38,13 @@ winget install --id=astral-sh.uv
 ```bash
 git clone https://github.com/MungoHarvey/edison-api-skill.git
 cd edison-api-skill
-cp .env.example .env   # then edit .env: EDISON_API_KEY=<your-key>
+cp .env.example .env   # then edit .env: EDISON_PLATFORM_API_KEY=<your-key>
 # Get your key from: https://platform.edisonscientific.com/profile
 ```
 
 Alternatively, export the key without a file:
 ```bash
-export EDISON_API_KEY=<your-key>
+export EDISON_PLATFORM_API_KEY=<your-key>
 # Or set EDISON_ENV_FILE=/path/to/.env.edison for a dedicated config file
 ```
 
@@ -117,9 +117,9 @@ Check whether `.env` already exists. If not:
 cp .env.example .env
 ```
 
-Then check whether `EDISON_API_KEY` is already set in `.env`. If it contains `your_api_key_here` or is missing, tell the user:
+Then check whether `EDISON_PLATFORM_API_KEY` is already set in `.env`. If it contains `your_api_key_here` or is missing, tell the user:
 
-> "Please get your API key from https://platform.edisonscientific.com/profile, then add it to `.env` as: `EDISON_API_KEY=<your_key>`"
+> "Please get your API key from https://platform.edisonscientific.com/profile, then add it to `.env` as: `EDISON_PLATFORM_API_KEY=<your_key>`"
 
 Wait for the user to confirm before continuing.
 
@@ -334,8 +334,10 @@ Obtain your key from: https://platform.edisonscientific.com/profile
 
 Store in `.env` at your project root:
 ```
-EDISON_API_KEY=your_api_key_here
+EDISON_PLATFORM_API_KEY=your_api_key_here
 ```
+
+The legacy name `EDISON_API_KEY` is also accepted as a fallback for existing `.env` files.
 
 Add `.env` to `.gitignore` — never commit your key.
 

@@ -40,7 +40,7 @@ def _run_walkup(script_dir: Path, env: dict | None = None):
 
 def test_edison_env_file_overrides_walkup(tmp_path):
     explicit = tmp_path / "custom.env"
-    explicit.write_text("EDISON_API_KEY=override")
+    explicit.write_text("EDISON_PLATFORM_API_KEY=override")
     loaded = _run_walkup(tmp_path / "scripts", env={"EDISON_ENV_FILE": str(explicit)})
     assert loaded == [explicit]
 

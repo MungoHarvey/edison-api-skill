@@ -20,7 +20,7 @@ def _load_check_environment():
 
 @pytest.fixture
 def ping_fn(monkeypatch):
-    monkeypatch.setenv("EDISON_API_KEY", "test-key")
+    monkeypatch.setenv("EDISON_PLATFORM_API_KEY", "test-key")
     mod = _load_check_environment()
     return mod.ping_platform
 
@@ -67,6 +67,7 @@ def test_returns_false_on_generic_exception(ping_fn):
 
 
 def test_returns_false_when_no_api_key(monkeypatch):
+    monkeypatch.delenv("EDISON_PLATFORM_API_KEY", raising=False)
     monkeypatch.delenv("EDISON_API_KEY", raising=False)
     mod = _load_check_environment()
     result = mod.ping_platform(object)
