@@ -16,7 +16,8 @@ Usage:
     python async_batch.py --poll ids.txt --output results/batch.md
 """
 # /// script
-# dependencies = ["edison-client", "python-dotenv"]
+# requires-python = ">=3.11"
+# dependencies = ["edison-client>=0.9.0", "python-dotenv"]
 # ///
 
 import argparse
@@ -31,12 +32,21 @@ from datetime import datetime
 # ── Environment setup ─────────────────────────────────────────────────────────
 try:
     from dotenv import load_dotenv
-    root = Path(__file__).resolve()
-    for _ in range(8):
-        root = root.parent
-        if (root / ".env").exists():
-            load_dotenv(root / ".env")
-            break
+    _env_file = os.environ.get("EDISON_ENV_FILE")
+    if _env_file:
+        load_dotenv(_env_file)
+    else:
+        root = Path(__file__).resolve().parent
+        for _ in range(8):
+            if (root / ".env.edison").exists():
+                load_dotenv(root / ".env.edison")
+                break
+            if (root / ".env").exists():
+                load_dotenv(root / ".env")
+                break
+            if (root / ".git").is_dir():
+                break
+            root = root.parent
 except ImportError:
     pass
 
