@@ -10,68 +10,46 @@ version: 0.1.0
 
 # Edison Skills Updater
 
-## Purpose
-
-Checks for and applies updates from the Edison Skills GitHub repository.
-Handles both install modes: `--plugin-dir` (reads directly from repo) and
-`--user` (copies into `~/.claude/skills/`).
-
----
+When this skill is invoked, execute the following steps in order.
 
 ## Step 1 — Check for updates
+
+Run this command and show the user the output:
 
 ```bash
 bash skills/edison-update/scripts/update.sh --check
 ```
 
-This fetches the latest commits from GitHub and prints what's new without
-changing anything. Safe to run at any time.
+If the output says "Already up to date", tell the user and stop here.
 
----
+## Step 2 — Ask the user whether to apply
 
-## Step 2 — Apply updates
+If updates are available, show the user the list of new commits and ask:
+"There are N new commits. Apply updates now?"
+
+If they say no, stop here.
+
+## Step 3 — Apply updates
+
+Run:
 
 ```bash
 bash skills/edison-update/scripts/update.sh --apply
 ```
 
-This:
-1. Pulls the latest commits from `origin/main`
-2. If skills are installed under `~/.claude/skills/`, re-copies them automatically
-3. If using `--plugin-dir`, the pull is sufficient (Claude Code reads directly from the repo)
+Show the full output. If the command fails, show the error and the suggested fix from the output.
 
-After updating, restart Claude Code to pick up the new skill definitions.
+## Step 4 — Confirm
 
----
-
-## Quick one-liner
-
-To check and apply in one shot:
-
-```bash
-bash skills/edison-update/scripts/update.sh
-```
-
-Without flags it will print what's new and ask for confirmation before pulling.
+Tell the user the update is complete and remind them to **restart Claude Code** to
+pick up any updated skill definitions.
 
 ---
 
-## Flags
+## Flags reference (for manual use)
 
-| Flag | Behaviour |
-|------|-----------|
-| _(none)_ | Show new commits, prompt before applying |
-| `--check` | Show new commits only, do not pull |
-| `--apply` | Pull and reinstall without prompting |
-| `--user` | Alias for `--apply` |
-
----
-
-## Troubleshooting
-
-| Error | Fix |
-|-------|-----|
-| `Pull failed — local uncommitted changes` | `git stash` then re-run with `--apply` |
-| `Could not reach remote` | Check network; confirm GitHub is accessible |
-| Skills not updated in Claude Code | Restart Claude Code after the pull |
-| `--user` reinstall failed | Check permissions on `~/.claude/skills/` |
+| Command | Behaviour |
+|---------|-----------|
+| `bash skills/edison-update/scripts/update.sh --check` | Show new commits, do not pull |
+| `bash skills/edison-update/scripts/update.sh --apply` | Pull and reinstall without prompting |
+| `bash skills/edison-update/scripts/update.sh` | Interactive — prompts before pulling |
