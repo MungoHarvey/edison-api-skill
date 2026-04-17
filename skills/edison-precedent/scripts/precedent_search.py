@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-precedent/scripts/precedent_search.py
+skills/edison-precedent/scripts/precedent_search.py
 
 Submit Precedent ("HasAnyone") queries to the Edison platform.
 Supports single queries, chained follow-ups, and batch mode.

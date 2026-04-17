@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-literature/scripts/literature_search.py
+skills/edison-literature/scripts/literature_search.py
 
 Submit a Literature search query to the Edison platform and print/save the result.
 Optionally chain from a prior task for follow-up queries.

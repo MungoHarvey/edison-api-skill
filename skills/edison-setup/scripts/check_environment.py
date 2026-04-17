@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-setup/scripts/check_environment.py
+skills/edison-setup/scripts/check_environment.py
 
 Pre-flight environment check. Validates venv, packages, and API key before
 any Edison skill executes. Auto-repairs where possible (e.g., re-runs setup_venv.sh

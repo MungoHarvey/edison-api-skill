@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-setup/scripts/test_connection.py
+skills/edison-setup/scripts/test_connection.py
 
 Validates that the Edison client is installed, the API key is present,
 and the platform is reachable via a lightweight Dummy task.

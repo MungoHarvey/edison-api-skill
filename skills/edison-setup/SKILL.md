@@ -57,7 +57,7 @@ Run the setup script from the project root to create `.venv/` and install all
 dependencies. This only needs to be done once:
 
 ```bash
-bash edison-setup/scripts/setup_venv.sh
+bash skills/edison-setup/scripts/setup_venv.sh
 ```
 
 This creates `.venv/` using `uv` (or `pip` as fallback), installs `edison-client`
@@ -93,7 +93,7 @@ key via `python-dotenv` at runtime. The key is never hard-coded in scripts.
 Run the pre-flight check to validate the full environment:
 
 ```bash
-uv run edison-setup/scripts/check_environment.py
+uv run skills/edison-setup/scripts/check_environment.py
 ```
 
 This validates (in order):
@@ -110,7 +110,7 @@ This validates (in order):
 Add `--ping` to also verify live platform connectivity (uses 1 API call):
 
 ```bash
-uv run edison-setup/scripts/check_environment.py --ping
+uv run skills/edison-setup/scripts/check_environment.py --ping
 ```
 
 ---
@@ -120,7 +120,7 @@ uv run edison-setup/scripts/check_environment.py --ping
 For detailed connectivity diagnostics:
 
 ```bash
-uv run edison-setup/scripts/test_connection.py
+uv run skills/edison-setup/scripts/test_connection.py
 ```
 
 A successful run prints:

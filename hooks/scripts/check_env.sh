@@ -17,7 +17,7 @@ fi
 if [ -d ".venv" ]; then
     STATUS="${STATUS}.venv: ✓ (dependencies installed)\n"
 else
-    WARNINGS="${WARNINGS}⚠ .venv not found. Run: bash edison-setup/scripts/setup_venv.sh\n"
+    WARNINGS="${WARNINGS}⚠ .venv not found. Run: bash skills/edison-setup/scripts/setup_venv.sh\n"
 fi
 
 # 3. Check for .env file (must be copied from .env.example by user)

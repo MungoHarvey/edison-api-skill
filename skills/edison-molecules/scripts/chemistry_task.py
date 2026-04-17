@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-molecules/scripts/chemistry_task.py
+skills/edison-molecules/scripts/chemistry_task.py
 
 Submit chemistry and molecular design tasks to the Edison Phoenix agent.
 

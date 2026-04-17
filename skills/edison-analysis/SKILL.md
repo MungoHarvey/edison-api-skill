@@ -43,7 +43,7 @@ and returns detailed analyses in response to a research question.
 ### Dataset from file
 
 ```bash
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "Which genes are most differentially expressed between DMSO control and TDP-43 knockdown?" \
     --data data/rnaseq_counts.csv
 ```
@@ -51,7 +51,7 @@ uv run edison-analysis/scripts/data_analysis.py \
 ### Inline data (small tables)
 
 ```bash
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "Identify outlier compounds by z-score" \
     --data-inline "compound,zscore\nCompoundA,3.2\nCompoundB,-0.4\nCompoundC,4.8"
 ```
@@ -61,7 +61,7 @@ uv run edison-analysis/scripts/data_analysis.py \
 ### With output saved
 
 ```bash
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "..." \
     --data data/my_data.csv \
     --output results/analysis_report.md
@@ -70,7 +70,7 @@ uv run edison-analysis/scripts/data_analysis.py \
 ### Follow-up on prior analysis
 
 ```bash
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "From the previous result, which of those pathways are known ALS-relevant?" \
     --continued-from <task_id>
 ```

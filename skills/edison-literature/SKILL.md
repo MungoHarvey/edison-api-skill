@@ -44,14 +44,14 @@ to an open scientific question.
 ### Single query
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "What are the mechanisms by which TDP-43 aggregation impairs motor neuron function in ALS?"
 ```
 
 ### High-reasoning variant (LITERATURE_HIGH)
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "What are the mechanisms by which TDP-43 aggregation impairs motor neuron function in ALS?" \
     --high
 ```
@@ -71,7 +71,7 @@ python -c "from edison_client import JobNames; print([j.name for j in JobNames])
 ### With verbose output (includes full paper metadata)
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "..." \
     --verbose
 ```
@@ -79,7 +79,7 @@ uv run edison-literature/scripts/literature_search.py \
 ### Follow-up / chained query
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "From the previous answer, which of those mechanisms are therapeutically tractable?" \
     --continued-from <task_id_from_prior_run>
 ```
@@ -87,7 +87,7 @@ uv run edison-literature/scripts/literature_search.py \
 ### Output to file
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "..." \
     --output results/literature_output.md
 ```

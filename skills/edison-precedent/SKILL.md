@@ -41,14 +41,14 @@ targeted precedent questions with a clear yes/no and cited supporting evidence.
 ### Single precedent query
 
 ```bash
-uv run edison-precedent/scripts/precedent_search.py \
+uv run skills/edison-precedent/scripts/precedent_search.py \
     --query "Has anyone tested antisense oligonucleotides targeting TDP-43 in ALS patient iPSC-derived motor neurons?"
 ```
 
 ### Batch mode — multiple queries from a text file
 
 ```bash
-uv run edison-precedent/scripts/precedent_search.py \
+uv run skills/edison-precedent/scripts/precedent_search.py \
     --batch queries.txt \
     --output results/precedent_results.md
 ```
@@ -58,7 +58,7 @@ uv run edison-precedent/scripts/precedent_search.py \
 ### Follow-up chaining
 
 ```bash
-uv run edison-precedent/scripts/precedent_search.py \
+uv run skills/edison-precedent/scripts/precedent_search.py \
     --query "From the prior answer, which studies used human samples?" \
     --continued-from <task_id>
 ```

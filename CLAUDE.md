@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | What | How |
 |------|-----|
-| Run a skill script | `uv run <skill>/scripts/<script>.py <args>` |
+| Run a skill script | `uv run skills/<skill>/scripts/<script>.py <args>` |
 | Environment file | `.env` at project root — variable: `EDISON_API_KEY` |
 | Install uv | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| Create venv | `bash edison-setup/scripts/setup_venv.sh` |
-| Verify setup | `uv run edison-setup/scripts/check_environment.py` |
-| Verify + connectivity | `uv run edison-setup/scripts/check_environment.py --ping` |
+| Create venv | `bash skills/edison-setup/scripts/setup_venv.sh` |
+| Verify setup | `uv run skills/edison-setup/scripts/check_environment.py` |
+| Verify + connectivity | `uv run skills/edison-setup/scripts/check_environment.py --ping` |
 
 > `EDISON_OUTPUT_DIR` is a user shell convention only — scripts do not read it. Pass output paths via `--output`.
 
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Edison Scientific Skills Collection** — a monorepo of Anthropic Open Standard skill definitions wrapping the Edison Scientific REST API. Integrates scientific research tasks (literature search, molecular design, dataset analysis) into Claude Code and Claude Cowork workflows.
 
-Plugin skill definitions live in `skills/<name>/SKILL.md` (auto-discovered by Claude Code). Python entry points live in `<name>/scripts/` at the project root.
+Plugin skill definitions live in `skills/<name>/SKILL.md` (auto-discovered by Claude Code). Python entry points live in `skills/<name>/scripts/`, co-located with each skill.
 
 ## Architecture
 
@@ -62,55 +62,55 @@ Use `JobNames.DUMMY` for connectivity tests without consuming API credits.
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 2. Create venv and install dependencies (one-time)
-bash edison-setup/scripts/setup_venv.sh
+bash skills/edison-setup/scripts/setup_venv.sh
 
 # 3. Configure API key
 cp .env.example .env   # edit .env, set EDISON_API_KEY=<your_key>
 
 # 4. Verify
-uv run edison-setup/scripts/check_environment.py --ping
+uv run skills/edison-setup/scripts/check_environment.py --ping
 ```
 
 ## Running Skills
 
 ```bash
 # Literature search
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Your scientific question" --output results/answer.md
 
 # Precedent check
-uv run edison-precedent/scripts/precedent_search.py \
+uv run skills/edison-precedent/scripts/precedent_search.py \
     --query "Has anyone done X?" --output results/precedent.md
 
 # Molecular design
-uv run edison-molecules/scripts/chemistry_task.py \
+uv run skills/edison-molecules/scripts/chemistry_task.py \
     --query "Design a compound that..." --output results/molecules.md
 
 # Data analysis (file or inline data)
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "Are any genes downregulated?" --data path/to/data.csv --output results/analysis.md
-uv run edison-analysis/scripts/data_analysis.py \
+uv run skills/edison-analysis/scripts/data_analysis.py \
     --query "Describe this data" --data-inline "col1,col2\nval1,val2"
 
 # Chained follow-up (reuses retrieved papers/context from prior task)
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Which mechanisms are druggable?" --continued-from <task_id>
 
 # Async batch: submit + wait
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl --output results/batch.md
 
 # Async batch: fire-and-forget, then poll later
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl --submit-only --task-ids-out task_ids.txt
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --poll task_ids.txt --output results/batch.md
 
 # Evaluation: quick (free, DUMMY only)
-uv run edison-evaluation/scripts/evaluate_skills.py --quick
+uv run skills/edison-evaluation/scripts/evaluate_skills.py --quick
 
 # Evaluation: full (uses API credits)
-uv run edison-evaluation/scripts/evaluate_skills.py \
+uv run skills/edison-evaluation/scripts/evaluate_skills.py \
     --skill all --full --output results/skill_evaluation.md
 ```
 
@@ -118,7 +118,7 @@ uv run edison-evaluation/scripts/evaluate_skills.py \
 
 ### Adding a Script to an Existing Skill
 
-1. Create at `<skill>/scripts/<name>.py`
+1. Create at `skills/<skill>/scripts/<name>.py`
 2. Follow the standard pattern:
    - Load `.env` by walking up via `python-dotenv`
    - Import `EdisonClient` and `JobNames` with `ImportError` fallback that exits 1

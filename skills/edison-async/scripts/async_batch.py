@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-async/scripts/async_batch.py
+skills/edison-async/scripts/async_batch.py
 
 Submit multiple Edison tasks concurrently and aggregate results.
 Supports fire-and-forget submission, polling, and full async batch execution.

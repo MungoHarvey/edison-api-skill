@@ -42,14 +42,14 @@ cheminformatics tools for active chemical reasoning.
 ### Basic chemistry query
 
 ```bash
-uv run edison-molecules/scripts/chemistry_task.py \
+uv run skills/edison-molecules/scripts/chemistry_task.py \
     --query "Design a small molecule inhibitor of TDP-43 aggregation with good CNS penetrance"
 ```
 
 ### Synthesis planning with SMILES
 
 ```bash
-uv run edison-molecules/scripts/chemistry_task.py \
+uv run skills/edison-molecules/scripts/chemistry_task.py \
     --query "Plan a synthetic route for compound with SMILES: CC(=O)Nc1ccc(O)cc1" \
     --output results/synthesis_plan.md
 ```
@@ -57,7 +57,7 @@ uv run edison-molecules/scripts/chemistry_task.py \
 ### Follow-up / iterative refinement
 
 ```bash
-uv run edison-molecules/scripts/chemistry_task.py \
+uv run skills/edison-molecules/scripts/chemistry_task.py \
     --query "From the previous design, suggest modifications to improve blood-brain barrier penetrance" \
     --continued-from <task_id>
 ```

@@ -36,7 +36,7 @@ Systematically test all Edison skill types and report on health and performance.
 ### Quick connectivity check (free — no API cost)
 
 ```bash
-uv run edison-evaluation/scripts/evaluate_skills.py --quick
+uv run skills/edison-evaluation/scripts/evaluate_skills.py --quick
 ```
 
 Validates venv, imports, and API key using DUMMY tasks without consuming credits.
@@ -45,7 +45,7 @@ Good for rapid diagnostics and CI/CD checks.
 ### Evaluate a specific skill (real query, uses credits)
 
 ```bash
-uv run edison-evaluation/scripts/evaluate_skills.py \
+uv run skills/edison-evaluation/scripts/evaluate_skills.py \
     --skill literature \
     --full
 ```
@@ -65,7 +65,7 @@ Test it explicitly with `--skill literature_high --full`.
 ### Evaluate all skills
 
 ```bash
-uv run edison-evaluation/scripts/evaluate_skills.py \
+uv run skills/edison-evaluation/scripts/evaluate_skills.py \
     --skill all \
     --full \
     --output results/evaluation_report.md

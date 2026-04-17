@@ -42,7 +42,7 @@ This skill handles the *how* (async/batch). The other skills define the *what*
 ### Async batch from a JSONL file
 
 ```bash
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl \
     --output results/batch_results.md
 ```
@@ -50,7 +50,7 @@ uv run edison-async/scripts/async_batch.py \
 ### Submit only (fire and forget)
 
 ```bash
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl \
     --submit-only \
     --task-ids-out task_ids.txt
@@ -59,7 +59,7 @@ uv run edison-async/scripts/async_batch.py \
 ### Poll previously submitted tasks
 
 ```bash
-uv run edison-async/scripts/async_batch.py \
+uv run skills/edison-async/scripts/async_batch.py \
     --poll task_ids.txt \
     --output results/batch_results.md
 ```

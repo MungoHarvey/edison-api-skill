@@ -36,7 +36,71 @@ reference SKILL.md files manually. Ask a literature question, and Claude will in
 
 ---
 
-## Quick Start
+## Setup for Claude
+
+> These instructions are for Claude Code to follow when a user asks to set up this plugin.
+
+When the user asks to "set up Edison" or "configure the Edison plugin", execute these steps in order:
+
+**Step 1 — Check for uv**
+
+```bash
+uv --version
+```
+
+If missing, install it:
+- macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
+After installing, ask the user to restart their terminal or run `source ~/.bashrc` (or equivalent), then confirm uv is available before continuing.
+
+**Step 2 — Create the virtual environment**
+
+From the plugin root directory:
+
+```bash
+bash skills/edison-setup/scripts/setup_venv.sh
+```
+
+This creates `.venv/` and installs `edison-client` and `python-dotenv`. Only run once.
+
+**Step 3 — Configure the API key**
+
+Check whether `.env` already exists. If not:
+
+```bash
+cp .env.example .env
+```
+
+Then check whether `EDISON_API_KEY` is already set in `.env`. If it contains `your_api_key_here` or is missing, tell the user:
+
+> "Please get your API key from https://platform.edisonscientific.com/profile, then add it to `.env` as: `EDISON_API_KEY=<your_key>`"
+
+Wait for the user to confirm before continuing.
+
+**Step 4 — Verify setup**
+
+```bash
+uv run skills/edison-setup/scripts/check_environment.py --ping
+```
+
+- Exit code `0` = ready. Report success.
+- Exit code `1` = hard failure — show the error output and help the user fix it.
+- Exit code `2` = API key missing or invalid — re-prompt the user to check `.env`.
+
+**Step 5 — Confirm to user**
+
+Report which checks passed (uv, .venv, .env, API key) and confirm Edison is ready for use. Suggest a test query:
+
+```bash
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "What is the role of TDP-43 in ALS pathogenesis?" \
+    --output results/test_literature.md
+```
+
+---
+
+## Quick Start (Human)
 
 ### 1. Clone the Repository
 
@@ -57,7 +121,7 @@ On Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/ins
 ### 3. Create Virtual Environment
 
 ```bash
-bash edison-setup/scripts/setup_venv.sh
+bash skills/edison-setup/scripts/setup_venv.sh
 ```
 
 This creates `.venv/` and installs `edison-client` and `python-dotenv`. Only needs
@@ -79,7 +143,7 @@ https://platform.edisonscientific.com/profile
 ### 5. Verify Setup
 
 ```bash
-uv run edison-setup/scripts/check_environment.py --ping
+uv run skills/edison-setup/scripts/check_environment.py --ping
 
 # Should output:
 # ✓ Edison environment is ready
@@ -88,7 +152,7 @@ uv run edison-setup/scripts/check_environment.py --ping
 ### 6. Try Your First Query
 
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "What is the role of TDP-43 in ALS pathogenesis?" \
     --output results/tdp43_literature.md
 ```
@@ -115,7 +179,7 @@ Save results to ~/Documents/Edison-Outputs/tdp43.md
 ```
 Claude Code reads SKILL.md, executes:
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "What is the role of TDP-43 in ALS pathogenesis?" \
     --output ~/Documents/Edison-Outputs/tdp43.md
 ```
@@ -124,7 +188,7 @@ uv run edison-literature/scripts/literature_search.py \
 Create a desktop task:
 ```
 Task: TDP-43 Literature Search
-1. Run command: uv run edison-literature/scripts/literature_search.py
+1. Run command: uv run skills/edison-literature/scripts/literature_search.py
                 --query "What is the role of TDP-43 in ALS pathogenesis?"
                 --output ${EDISON_OUTPUT_DIR}/tdp43.md
 2. Import to Obsidian from ~/Documents/Edison-Outputs/
@@ -143,21 +207,33 @@ edison-api-skill/
 ├── hooks/
 │   ├── hooks.json               ← SessionStart hook (auto-checks environment)
 │   └── scripts/check_env.sh
-├── skills/                      ← Plugin skill definitions (auto-discovered)
-│   ├── edison-setup/SKILL.md
-│   ├── edison-literature/SKILL.md
-│   ├── edison-precedent/SKILL.md
-│   ├── edison-molecules/SKILL.md
-│   ├── edison-analysis/SKILL.md
-│   ├── edison-async/SKILL.md
-│   └── edison-evaluation/SKILL.md
-├── edison-setup/scripts/        ← Python entry points (referenced by skills)
-├── edison-literature/scripts/
-├── edison-precedent/scripts/
-├── edison-molecules/scripts/
-├── edison-analysis/scripts/
-├── edison-async/scripts/
-└── edison-evaluation/scripts/
+└── skills/                      ← Skill definitions and scripts (auto-discovered)
+    ├── edison-setup/
+    │   ├── SKILL.md
+    │   ├── scripts/             ← setup_venv.sh, check_environment.py, test_connection.py
+    │   └── references/
+    ├── edison-literature/
+    │   ├── SKILL.md
+    │   ├── scripts/             ← literature_search.py
+    │   └── references/
+    ├── edison-precedent/
+    │   ├── SKILL.md
+    │   └── scripts/             ← precedent_search.py
+    ├── edison-molecules/
+    │   ├── SKILL.md
+    │   └── scripts/             ← chemistry_task.py
+    ├── edison-analysis/
+    │   ├── SKILL.md
+    │   ├── scripts/             ← data_analysis.py
+    │   └── references/
+    ├── edison-async/
+    │   ├── SKILL.md
+    │   ├── scripts/             ← async_batch.py
+    │   └── references/
+    └── edison-evaluation/
+        ├── SKILL.md
+        ├── scripts/             ← evaluate_skills.py
+        └── test_queries/
 ```
 
 ## Integration: Claude Code
@@ -199,7 +275,7 @@ export EDISON_OUTPUT_DIR="$HOME/Documents/Edison-Outputs"
 
 Then use scripts with relative paths:
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Your question" \
     --output $(date +%Y%m%d)_question.md
 ```
@@ -207,19 +283,19 @@ uv run edison-literature/scripts/literature_search.py \
 **Option 2: Explicit full path (per command)**
 ```bash
 # Linux/Mac
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Your question" \
     --output ~/Documents/Edison-Outputs/$(date +%Y%m%d)_question.md
 
 # Windows (PowerShell)
-python edison-literature\scripts\literature_search.py `
+python skills/edison-literature/scripts/literature_search.py `
     --query "Your question" `
     --output "$HOME\Documents\Edison-Outputs\question.md"
 ```
 
 **Option 3: Obsidian vault (if using Obsidian)**
 ```bash
-uv run edison-literature/scripts/literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Your question" \
     --output ~/Library/Mobile\ Documents/iCloud\~md\~obsidian/Documents/vault-name/AI-Usage-Log/edison/question.md
 ```
@@ -228,7 +304,7 @@ uv run edison-literature/scripts/literature_search.py \
 
 ```
 1. Set EDISON_OUTPUT_DIR environment variable in .env or shell config
-2. Run: uv run edison-literature/scripts/literature_search.py
+2. Run: uv run skills/edison-literature/scripts/literature_search.py
          --query "<query>" --output $(date +%Y-%m-%d)_topic.md
 3. Results automatically appear in ~/Documents/Edison-Outputs/
 4. (Optional) If Obsidian vault path is set, trigger obsidian-mcp sync
@@ -240,13 +316,13 @@ All scripts support `--continued-from <task_id>` to chain follow-up questions:
 
 ```bash
 # Initial query
-uv run ... literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "What are TDP-43 aggregation mechanisms?" \
     --output results/step1.md
 # → Note the task ID printed to stderr
 
 # Follow-up (uses same retrieved papers)
-uv run ... literature_search.py \
+uv run skills/edison-literature/scripts/literature_search.py \
     --query "Which of those mechanisms are druggable?" \
     --continued-from <task_id_from_step1> \
     --output results/step2.md

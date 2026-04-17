@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-analysis/scripts/data_analysis.py
+skills/edison-analysis/scripts/data_analysis.py
 
 Submit a biological dataset and a research question to the Edison Analysis agent.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-edison-evaluation/scripts/evaluate_skills.py
+skills/edison-evaluation/scripts/evaluate_skills.py
 
 Evaluate Edison skill health and performance by running test queries.
 
