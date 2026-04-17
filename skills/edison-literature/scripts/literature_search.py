@@ -155,9 +155,11 @@ def main():
     print(wait_msg, file=sys.stderr)
 
     response = client.run_tasks_until_done(task, verbose=args.verbose)
+    if isinstance(response, list):
+        response = response[0]
 
     # Print task ID for future chaining
-    task_id = getattr(response, "id", getattr(response, "task_id", None))
+    task_id = getattr(response, "task_id", getattr(response, "id", None))
     print(f"\n=== TASK ID (save for follow-ups) ===\n{task_id}\n", file=sys.stderr)
 
     # Render output

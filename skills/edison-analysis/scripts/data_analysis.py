@@ -129,8 +129,10 @@ def main():
     print("Waiting for Edison Analysis agent ...", file=sys.stderr)
 
     response = client.run_tasks_until_done(task, verbose=args.verbose)
+    if isinstance(response, list):
+        response = response[0]
 
-    task_id = getattr(response, "id", getattr(response, "task_id", "unknown"))
+    task_id = getattr(response, "task_id", getattr(response, "id", "unknown"))
     answer = getattr(response, "answer", "No answer returned.")
     formatted = getattr(response, "formatted_answer", None)
 

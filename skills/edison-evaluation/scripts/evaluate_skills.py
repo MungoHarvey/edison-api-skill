@@ -97,6 +97,8 @@ def evaluate_dummy(client, skill_name):
             "name": JobNames.DUMMY,
             "query": f"ping {skill_name}"
         })
+        if isinstance(response, list):
+            response = response[0]
         elapsed = time.perf_counter() - start
 
         success = hasattr(response, 'answer') or str(response).strip()
@@ -139,6 +141,8 @@ def evaluate_skill(client, skill_type, query):
             "name": job_name,
             "query": query
         })
+        if isinstance(response, list):
+            response = response[0]
         elapsed = time.perf_counter() - start
 
         # Extract fields from response
@@ -184,6 +188,8 @@ def evaluate_analysis_skill(client):
             "name": job_name,
             "query": query_with_data
         })
+        if isinstance(response, list):
+            response = response[0]
         elapsed = time.perf_counter() - start
 
         has_successful_answer = getattr(response, 'has_successful_answer', False)

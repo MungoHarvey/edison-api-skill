@@ -68,8 +68,10 @@ def run_precedent_query(
 
     print(f"  Querying: {query!r}", file=sys.stderr)
     response = client.run_tasks_until_done(task)
+    if isinstance(response, list):
+        response = response[0]
 
-    task_id = getattr(response, "id", getattr(response, "task_id", "unknown"))
+    task_id = getattr(response, "task_id", getattr(response, "id", "unknown"))
 
     return {
         "query": query,

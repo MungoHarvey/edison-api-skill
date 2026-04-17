@@ -55,6 +55,8 @@ print("  Submitting dummy task to verify platform connectivity ...")
 try:
     client = EdisonClient(api_key=api_key)
     response = client.run_tasks_until_done({"name": JobNames.DUMMY, "query": "ping"})
+    if isinstance(response, list):
+        response = response[0]
     print("✓ Dummy task completed — connection confirmed")
     print(f"  Response: {getattr(response, 'answer', str(response))[:120]}")
 except Exception as e:
