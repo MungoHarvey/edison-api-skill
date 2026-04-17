@@ -33,7 +33,7 @@ cheminformatics tools for active chemical reasoning.
 ## Prerequisites
 
 - Edison environment configured (run `edison-setup` skill first if uncertain)
-- `.env` file with `EDISON_API_KEY` set at project root
+- `.env` file with `EDISON_PLATFORM_API_KEY` set at project root
 
 ---
 

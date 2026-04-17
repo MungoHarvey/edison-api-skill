@@ -1,0 +1,7 @@
+[project]
+name = "edison-api-skill"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-mock>=3"]

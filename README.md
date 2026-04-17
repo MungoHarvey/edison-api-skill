@@ -21,13 +21,58 @@ ready-to-use Python scripts.
 | `edison-async` | All | Running multiple queries concurrently |
 | `edison-evaluation` | All | Health checks and performance evaluation |
 
-## Installation as a Claude Code Plugin
+## Install
 
-Install this repo as a Claude Code plugin to get all Edison skills surfaced automatically:
+### 1. Install uv (if not already)
+
+```bash
+# Unix/Mac
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows
+winget install --id=astral-sh.uv
+# or: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 2. Clone the repo and add your API key
 
 ```bash
 git clone https://github.com/MungoHarvey/edison-api-skill.git
-# Then in Claude Code settings, add the plugin directory
+cd edison-api-skill
+cp .env.example .env   # then edit .env: EDISON_PLATFORM_API_KEY=<your-key>
+# Get your key from: https://platform.edisonscientific.com/profile
+```
+
+Alternatively, export the key without a file:
+```bash
+export EDISON_PLATFORM_API_KEY=<your-key>
+# Or set EDISON_ENV_FILE=/path/to/.env.edison for a dedicated config file
+```
+
+### 3. Register skills in Claude Code (choose one)
+
+```bash
+# Option A — user-level (available in all projects):
+bash install.sh --user
+# On Windows PowerShell: .\install.ps1 -User
+
+# Option B — print the --plugin-dir flag for project-level use:
+bash install.sh --plugin-dir
+
+# Option C — pass --plugin-dir directly to Claude Code:
+# Add --plugin-dir /path/to/edison-api-skill to your Claude Code command
+```
+
+### 4. Verify
+
+```bash
+uv run skills/edison-setup/scripts/check_environment.py
+```
+
+### That's it
+
+```bash
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "What causes Alzheimer's?" --output results/answer.md
 ```
 
 Once installed, skills activate automatically based on your prompts — no need to
@@ -72,9 +117,9 @@ Check whether `.env` already exists. If not:
 cp .env.example .env
 ```
 
-Then check whether `EDISON_API_KEY` is already set in `.env`. If it contains `your_api_key_here` or is missing, tell the user:
+Then check whether `EDISON_PLATFORM_API_KEY` is already set in `.env`. If it contains `your_api_key_here` or is missing, tell the user:
 
-> "Please get your API key from https://platform.edisonscientific.com/profile, then add it to `.env` as: `EDISON_API_KEY=<your_key>`"
+> "Please get your API key from https://platform.edisonscientific.com/profile, then add it to `.env` as: `EDISON_PLATFORM_API_KEY=<your_key>`"
 
 Wait for the user to confirm before continuing.
 
@@ -84,7 +129,7 @@ Wait for the user to confirm before continuing.
 uv run skills/edison-setup/scripts/check_environment.py --ping
 ```
 
-- Exit code `0` = ready. Report success.
+- Exit code `0` = ready (includes a `⚠` warning if ping returned 404 — platform-side, key is fine).
 - Exit code `1` = hard failure — show the error output and help the user fix it.
 - Exit code `2` = API key missing or invalid — re-prompt the user to check `.env`.
 
@@ -100,56 +145,11 @@ uv run skills/edison-literature/scripts/literature_search.py \
 
 ---
 
-## Quick Start (Human)
+## Quick Start
 
-### 1. Clone the Repository
-
-```bash
-cd ~/Projects  # or your preferred location
-git clone https://github.com/MungoHarvey/edison-api-skill.git
-cd edison-api-skill
-```
-
-### 2. Install uv
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-On Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
-
-### 3. Create Virtual Environment
-
-```bash
-bash skills/edison-setup/scripts/setup_venv.sh
-```
-
-This creates `.venv/` and installs `edison-client` and `python-dotenv`. Only needs
-to be done once — all Edison skills reuse this environment.
-
-### 4. Configure API Key
-
-The repo ships `.env.example` as a template. Copy it and add your real key:
-
-```bash
-cp .env.example .env
-```
-
-Then edit `.env` and replace `your_api_key_here` with your actual API key from:
-https://platform.edisonscientific.com/profile
-
-**Important:** `.env` is gitignored — never commit it.
-
-### 5. Verify Setup
-
-```bash
-uv run skills/edison-setup/scripts/check_environment.py --ping
-
-# Should output:
-# ✓ Edison environment is ready
-```
-
-### 6. Try Your First Query
+The `uv run` path (above) handles everything automatically. If you prefer a persistent
+venv, run `bash skills/edison-setup/scripts/setup_venv.sh` once, then invoke scripts
+with `.venv/bin/python` (Unix/Mac) or `.venv\Scripts\python.exe` (Windows).
 
 ```bash
 uv run skills/edison-literature/scripts/literature_search.py \
@@ -334,13 +334,15 @@ Obtain your key from: https://platform.edisonscientific.com/profile
 
 Store in `.env` at your project root:
 ```
-EDISON_API_KEY=your_api_key_here
+EDISON_PLATFORM_API_KEY=your_api_key_here
 ```
+
+The legacy name `EDISON_API_KEY` is also accepted as a fallback for existing `.env` files.
 
 Add `.env` to `.gitignore` — never commit your key.
 
 ## Dependencies
 
-- Python 3.10+
+- Python 3.11+
 - `uv` (recommended) — used for venv creation and script execution
 - `edison-client` and `python-dotenv` — installed into `.venv/` by `setup_venv.sh`

@@ -11,6 +11,7 @@ Usage:
     python data_analysis.py --query "..." --continued-from <task_id>
 """
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["edison-client", "python-dotenv"]
 # ///
 
@@ -23,12 +24,21 @@ from datetime import datetime
 # ── Environment setup ─────────────────────────────────────────────────────────
 try:
     from dotenv import load_dotenv
-    root = Path(__file__).resolve()
-    for _ in range(8):
-        root = root.parent
-        if (root / ".env").exists():
-            load_dotenv(root / ".env")
-            break
+    _env_file = os.environ.get("EDISON_ENV_FILE")
+    if _env_file:
+        load_dotenv(_env_file)
+    else:
+        root = Path(__file__).resolve().parent
+        for _ in range(8):
+            if (root / ".env.edison").exists():
+                load_dotenv(root / ".env.edison")
+                break
+            if (root / ".env").exists():
+                load_dotenv(root / ".env")
+                break
+            if (root / ".git").is_dir():
+                break
+            root = root.parent
 except ImportError:
     pass
 
@@ -83,9 +93,9 @@ def main():
                         help="Save Markdown report to this file path")
     args = parser.parse_args()
 
-    api_key = os.getenv("EDISON_API_KEY")
+    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
     if not api_key:
-        print("✗ EDISON_API_KEY not set in environment or .env", file=sys.stderr)
+        print("✗ EDISON_PLATFORM_API_KEY not set in environment or .env", file=sys.stderr)
         sys.exit(1)
 
     # ── Build query ───────────────────────────────────────────────────────────

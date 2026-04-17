@@ -3,7 +3,7 @@ name: edison-setup
 description: >
   This skill should be used when the user asks to "set up Edison", "install Edison",
   "configure the Edison API key", "fix Edison authentication", "Edison setup", or
-  encounters errors like "edison_client not found", "EDISON_API_KEY not set", or
+  encounters errors like "edison_client not found", "EDISON_PLATFORM_API_KEY not set", or
   "ModuleNotFoundError". This skill should be run before any other Edison skill when
   the environment may not yet be configured or when troubleshooting authentication
   and connectivity issues.
@@ -36,7 +36,7 @@ connection is live.
 ## Automatic Environment Detection
 
 A SessionStart hook runs automatically when Claude Code opens a project with this
-plugin enabled. It checks for `uv`, `.env`, and `EDISON_API_KEY`, reporting status
+plugin enabled. It checks for `uv`, `.env`, and `EDISON_PLATFORM_API_KEY`, reporting status
 and any issues that need attention.
 
 ---
@@ -78,7 +78,7 @@ cp .env.example .env
 Then edit `.env` and replace `your_api_key_here` with the actual API key:
 
 ```
-EDISON_API_KEY=ek_live_...
+EDISON_PLATFORM_API_KEY=ek_live_...
 ```
 
 Get an API key at: https://platform.edisonscientific.com/profile
@@ -99,13 +99,13 @@ uv run skills/edison-setup/scripts/check_environment.py
 This validates (in order):
 1. `python-dotenv` is installed
 2. `.env` file exists at project root
-3. `EDISON_API_KEY` is set and non-empty
+3. `EDISON_PLATFORM_API_KEY` is set and non-empty
 4. `edison-client` is importable
 
 **Exit codes:**
 - `0` — environment ready
 - `1` — hard failure (missing dependencies) — re-run `setup_venv.sh`
-- `2` — soft failure (missing API key) — copy `.env.example` to `.env` and add key
+- `2` — soft failure (missing API key) — copy `.env.example` to `.env` and add `EDISON_PLATFORM_API_KEY`
 
 Add `--ping` to also verify live platform connectivity (uses 1 API call):
 
@@ -139,7 +139,7 @@ A successful run prints:
 | `ModuleNotFoundError: edison_client` | `uv` not installed or network issue | Install `uv`, check network |
 | `AuthenticationError` | Missing or invalid API key | Check `.env`, regenerate key at platform |
 | `ConnectionError` / timeout | Network issue or platform outage | Check https://platform.edisonscientific.com |
-| Exit code 2 | `EDISON_API_KEY` not in `.env` | Add key to `.env` file at project root |
+| Exit code 2 | `EDISON_PLATFORM_API_KEY` not in `.env` | Add key to `.env` file at project root |
 
 ---
 

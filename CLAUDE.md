@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | What | How |
 |------|-----|
 | Run a skill script | `uv run skills/<skill>/scripts/<script>.py <args>` |
-| Environment file | `.env` at project root — variable: `EDISON_API_KEY` |
+| Environment file | `.env` at project root — variable: `EDISON_PLATFORM_API_KEY` |
 | Install uv | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Create venv | `bash skills/edison-setup/scripts/setup_venv.sh` |
 | Verify setup | `uv run skills/edison-setup/scripts/check_environment.py` |
@@ -48,7 +48,7 @@ All scripts follow the same conventions:
 ### API Client
 
 All scripts use `edison_client.EdisonClient`:
-- `api_key` from `EDISON_API_KEY` env var
+- `api_key` from `EDISON_PLATFORM_API_KEY` env var (falls back to `EDISON_API_KEY` for backward compatibility)
 - `run_tasks_until_done(task)` — blocking submission
 - `acreate_task(task)` / `aget_task(task_id)` — async batch ops
 - `JobNames` enum: `LITERATURE`, `PRECEDENT`, `MOLECULES`, `ANALYSIS`, `DUMMY` (plus `LITERATURE_HIGH` if the installed `edison-client` version supports it)
@@ -65,7 +65,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 bash skills/edison-setup/scripts/setup_venv.sh
 
 # 3. Configure API key
-cp .env.example .env   # edit .env, set EDISON_API_KEY=<your_key>
+cp .env.example .env   # edit .env, set EDISON_PLATFORM_API_KEY=<your_key>
 
 # 4. Verify
 uv run skills/edison-setup/scripts/check_environment.py --ping
@@ -148,4 +148,4 @@ Comments (`#`) and blank lines are ignored. `name` must be a valid `JobNames` ke
 - **Dependencies**: `edison-client`, `python-dotenv` (declared inline in each script)
 - **API endpoint**: `https://platform.edisonscientific.com` (configured in `edison-client`)
 - **API key source**: `https://platform.edisonscientific.com/profile`
-- **SessionStart hook**: Automatically checks for `uv`, `.env`, and `EDISON_API_KEY` when Claude Code starts
+- **SessionStart hook**: Automatically checks for `uv`, `.env`, and `EDISON_PLATFORM_API_KEY` when Claude Code starts

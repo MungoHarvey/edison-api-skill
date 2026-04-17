@@ -19,6 +19,7 @@ Usage:
   python evaluate_skills.py --skill literature --full --output results/eval.md
 """
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["edison-client", "python-dotenv"]
 # ///
 
@@ -34,16 +35,23 @@ import re
 # ── Load .env from project root ──────────────────────────────────────────────
 try:
     from dotenv import load_dotenv
-    root = Path(__file__).resolve()
-    for _ in range(8):
-        root = root.parent
-        env_file = root / ".env"
-        if env_file.exists():
-            load_dotenv(env_file)
-            break
+    _env_file = os.environ.get("EDISON_ENV_FILE")
+    if _env_file:
+        load_dotenv(_env_file)
+    else:
+        root = Path(__file__).resolve().parent
+        for _ in range(8):
+            if (root / ".env.edison").exists():
+                load_dotenv(root / ".env.edison")
+                break
+            if (root / ".env").exists():
+                load_dotenv(root / ".env")
+                break
+            if (root / ".git").is_dir():
+                break
+            root = root.parent
 except ImportError:
-    print("✗ python-dotenv not installed — run setup_venv.sh first", file=sys.stderr)
-    sys.exit(1)
+    pass
 
 # ── Import Edison client ─────────────────────────────────────────────────────
 try:
@@ -318,9 +326,9 @@ def main():
     print(f"Skills: {', '.join(skills_to_test)}", file=sys.stderr)
 
     # Initialize client
-    api_key = os.getenv("EDISON_API_KEY")
+    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
     if not api_key:
-        print("✗ EDISON_API_KEY not set in environment", file=sys.stderr)
+        print("✗ EDISON_PLATFORM_API_KEY not set in environment", file=sys.stderr)
         sys.exit(2)
 
     client = EdisonClient(api_key=api_key)

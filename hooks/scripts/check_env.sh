@@ -34,23 +34,28 @@ done
 if [ -n "$ENV_FILE" ]; then
     STATUS="${STATUS}.env: ✓ (found at $ENV_FILE)\n"
 else
-    WARNINGS="${WARNINGS}⚠ No .env file found. Run: cp .env.example .env  then add your EDISON_API_KEY.\n"
+    WARNINGS="${WARNINGS}⚠ No .env file found. Run: cp .env.example .env  then add your EDISON_PLATFORM_API_KEY.\n"
 fi
 
-# 4. Check for EDISON_API_KEY (from env or .env)
-if [ -n "$EDISON_API_KEY" ]; then
-    KEY_PREFIX="${EDISON_API_KEY:0:8}..."
-    STATUS="${STATUS}EDISON_API_KEY: ✓ (${KEY_PREFIX})\n"
+# 4. Check for EDISON_PLATFORM_API_KEY (or legacy EDISON_API_KEY) from env or .env
+RESOLVED_KEY="${EDISON_PLATFORM_API_KEY:-$EDISON_API_KEY}"
+if [ -n "$RESOLVED_KEY" ]; then
+    KEY_PREFIX="${RESOLVED_KEY:0:8}..."
+    STATUS="${STATUS}EDISON_PLATFORM_API_KEY: ✓ (${KEY_PREFIX})\n"
 elif [ -n "$ENV_FILE" ]; then
-    KEY_IN_FILE=$(grep -E '^EDISON_API_KEY=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    KEY_IN_FILE=$(grep -E '^EDISON_PLATFORM_API_KEY=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    # Fall back to legacy name if new name not found
+    if [ -z "$KEY_IN_FILE" ]; then
+        KEY_IN_FILE=$(grep -E '^EDISON_API_KEY=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    fi
     if [ -n "$KEY_IN_FILE" ] && [ "$KEY_IN_FILE" != "your_api_key_here" ]; then
         KEY_PREFIX="${KEY_IN_FILE:0:8}..."
-        STATUS="${STATUS}EDISON_API_KEY: ✓ in .env (${KEY_PREFIX})\n"
+        STATUS="${STATUS}EDISON_PLATFORM_API_KEY: ✓ in .env (${KEY_PREFIX})\n"
     else
-        WARNINGS="${WARNINGS}⚠ EDISON_API_KEY not set in .env. Get your key at https://platform.edisonscientific.com/profile\n"
+        WARNINGS="${WARNINGS}⚠ EDISON_PLATFORM_API_KEY not set in .env. Get your key at https://platform.edisonscientific.com/profile\n"
     fi
 else
-    WARNINGS="${WARNINGS}⚠ EDISON_API_KEY not found in environment or .env.\n"
+    WARNINGS="${WARNINGS}⚠ EDISON_PLATFORM_API_KEY not found in environment or .env.\n"
 fi
 
 # 5. Report
