@@ -16,6 +16,20 @@
 
 **Where to start:** `uv` docs on `[tool.uv.sources]` with path dependencies in PEP 723 scripts.
 
+## truncation_prefix: report actual final budget not initial budget
+
+**What:** `truncation_prefix(attempts, final_budget)` is called with `args.max_steps` (the *initial* budget) in all 5 callers (`literature_search.py`, `precedent_search.py`, `chemistry_task.py`, `data_analysis.py`, `async_batch.py`). After escalation, the true final budget could be 150, 225, or 300 — but the warning says "final budget: 100 steps."
+
+**Why:** Misleading to the user if they see "final budget: 100 steps" when the retry actually ran at 300 steps.
+
+**Fix:** Change `submit_with_retry` and `submit_with_retry_async` to return a 3-tuple `(response, was_truncated, final_budget)` and update all 5 callers to pass `final_budget` to `truncation_prefix`.
+
+**Cons:** Touches 5 callers, minor API change to shared module.
+
+**Context:** Identified in adversarial review of 2026-04-20 max-steps/retry PR. Deferred as cosmetic — not worth the scope increase in that PR.
+
+**Depends on:** Nothing.
+
 ## data_analysis.py answer extraction + proper data upload
 
 **What:** Two bugs in `skills/edison-analysis/scripts/data_analysis.py`. (1) The script reads `response.answer`, but ANALYSIS tasks nest the real answer at `environment_frame["state"]["state"]["answer"]` — result is that successful runs look empty or mis-rendered. (2) Inline data is stitched into the query string, which is the wrong mechanism; the Edison SDK exposes `astore_file_content()` for data uploads, which avoids the 20k-char truncation and lets the agent reference data as a proper artifact.

@@ -346,12 +346,11 @@ def test_async_semaphore_limits_concurrency():
             active += 1
             max_concurrent = max(max_concurrent, active)
             await asyncio.sleep(0)  # yield to let other coroutines in
+            active -= 1
             return task_id
 
         async def aget_task(self, task_id: str):
             resp = self._pending.get(task_id)
-            nonlocal active
-            active -= 1
             self._pending.pop(task_id, None)
             return resp
 

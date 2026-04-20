@@ -146,45 +146,48 @@ async def submit_with_retry_async(
     build_task(budget) must return a task dict (or TaskRequest) accepted by acreate_task.
     Returns (response, was_truncated).
     """
-    async with _get_sem():
-        budget = max_steps
-        last_response = None
+    budget = max_steps
+    last_response = None
 
-        for attempt in range(max_retries + 1):
-            task = build_task(budget)
+    for attempt in range(max_retries + 1):
+        task = build_task(budget)
+        # Semaphore caps concurrent submissions only — not the poll loop.
+        # This prevents retry storms (8 simultaneous submissions max) while
+        # allowing polling to proceed freely once a task is submitted.
+        async with _get_sem():
             task_id = await client.acreate_task(task)
 
-            resp = None
-            for _ in range(max_poll_attempts):
-                await asyncio.sleep(poll_interval)
-                resp = await client.aget_task(task_id)
-                task_status = getattr(resp, "status", None)
-                if task_status in ("success", "failed", "error"):
-                    break
+        resp = None
+        for _ in range(max_poll_attempts):
+            await asyncio.sleep(poll_interval)
+            resp = await client.aget_task(task_id)
+            task_status = getattr(resp, "status", None)
+            if task_status in ("success", "failed", "error"):
+                break
 
-            last_response = resp
+        last_response = resp
 
-            if resp is None:
-                # Timeout — not truncation, return as-is
-                return resp, False
+        if resp is None:
+            # Timeout — not truncation, return as-is
+            return resp, False
 
-            if not is_truncated(resp):
-                return resp, False
+        if not is_truncated(resp):
+            return resp, False
 
-            signal = _detect_signal(resp)
-            task_name = str(task.get("name", "?")).split(".")[-1] if isinstance(task, dict) else str(getattr(task, "name", "?")).split(".")[-1]
-            query_prefix = (task.get("query", "") if isinstance(task, dict) else str(getattr(task, "query", "")))[:80]
-            _warn(task_name, query_prefix, attempt + 1, budget, signal)
+        signal = _detect_signal(resp)
+        task_name = str(task.get("name", "?")).split(".")[-1] if isinstance(task, dict) else str(getattr(task, "name", "?")).split(".")[-1]
+        query_prefix = (task.get("query", "") if isinstance(task, dict) else str(getattr(task, "query", "")))[:80]
+        _warn(task_name, query_prefix, attempt + 1, budget, signal)
 
-            next_budget = _next_budget(budget)
-            if attempt == max_retries or next_budget <= budget:
-                print(f"⚠ Retries exhausted at {budget} steps.", file=sys.stderr)
-                return last_response, True
+        next_budget = _next_budget(budget)
+        if attempt == max_retries or next_budget <= budget:
+            print(f"⚠ Retries exhausted at {budget} steps.", file=sys.stderr)
+            return last_response, True
 
-            print(f"⚠ Retrying with {next_budget} steps ...", file=sys.stderr)
-            budget = next_budget
+        print(f"⚠ Retrying with {next_budget} steps ...", file=sys.stderr)
+        budget = next_budget
 
-        return last_response, True
+    return last_response, True
 
 
 # ── CLI helpers ───────────────────────────────────────────────────────────────
