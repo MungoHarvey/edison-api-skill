@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Create venv | `bash skills/edison-setup/scripts/setup_venv.sh` |
 | Verify setup | `uv run skills/edison-setup/scripts/check_environment.py` |
 | Verify + connectivity | `uv run skills/edison-setup/scripts/check_environment.py --ping` |
+| Retry flags | `--max-steps N` (default 100), `--max-retries N` (default 3), `--no-retry` |
 
 > `EDISON_OUTPUT_DIR` is a user shell convention only — scripts do not read it. Pass output paths via `--output`.
 
@@ -41,9 +42,11 @@ All scripts follow the same conventions:
 - **PEP 723 inline metadata**: Each script declares `edison-client` and `python-dotenv` as dependencies, so `uv run` works without a pre-built venv
 - **`.env` loading**: Walk up from script location (up to 8 levels) to find `.env` via `python-dotenv`
 - **Output**: Results to stdout or `--output <path>`; task IDs and logs to stderr
-- **Exit codes**: `0` = success, `1` = hard failure, `2` = no successful answer / missing API key
+- **Exit codes**: `0` = success, `1` = hard failure, `2` = no successful answer / missing API key / truncated after retries exhausted
 - **Task chaining**: Task ID printed to stderr; pass to next call with `--continued-from <task_id>`
 - **`--ping` flag**: `check_environment.py --ping` is read via `sys.argv`, not argparse (won't appear in `--help`)
+- **Retry on truncation**: All scripts support `--max-steps N` (default 100), `--max-retries N` (default 3), `--no-retry`; on truncation the budget escalates 1.5× per attempt (capped at 300 steps)
+- **Shared retry module**: `skills/_common/edison_retry.py` — imported via `sys.path.insert(0, ..._common_path)` in every script; no extra `uv` dependency
 
 ### API Client
 
@@ -78,6 +81,14 @@ uv run skills/edison-setup/scripts/check_environment.py --ping
 uv run skills/edison-literature/scripts/literature_search.py \
     --query "Your scientific question" --output results/answer.md
 
+# With custom retry settings (useful for complex queries that hit step limits)
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "Your scientific question" --max-steps 150 --max-retries 5 --output results/answer.md
+
+# Disable retry entirely
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "Your scientific question" --no-retry --output results/answer.md
+
 # Precedent check
 uv run skills/edison-precedent/scripts/precedent_search.py \
     --query "Has anyone done X?" --output results/precedent.md
@@ -96,11 +107,15 @@ uv run skills/edison-analysis/scripts/data_analysis.py \
 uv run skills/edison-literature/scripts/literature_search.py \
     --query "Which mechanisms are druggable?" --continued-from <task_id>
 
-# Async batch: submit + wait
+# Async batch: submit + wait (per-task retry applies to each row)
 uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl --output results/batch.md
 
-# Async batch: fire-and-forget, then poll later
+# Async batch: with retry settings
+uv run skills/edison-async/scripts/async_batch.py \
+    --input queries.jsonl --max-steps 150 --max-retries 2 --output results/batch.md
+
+# Async batch: fire-and-forget, then poll later (no retry in poll mode)
 uv run skills/edison-async/scripts/async_batch.py \
     --input queries.jsonl --submit-only --task-ids-out task_ids.txt
 uv run skills/edison-async/scripts/async_batch.py \
@@ -122,9 +137,12 @@ uv run skills/edison-evaluation/scripts/evaluate_skills.py \
 2. Follow the standard pattern:
    - Load `.env` by walking up via `python-dotenv`
    - Import `EdisonClient` and `JobNames` with `ImportError` fallback that exits 1
+   - Import retry helpers: `sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))` then `from edison_retry import add_retry_args, load_api_key, submit_with_retry, truncation_prefix, DEFAULT_MAX_STEPS`
+   - Call `add_retry_args(parser)` to add `--max-steps`, `--max-retries`, `--no-retry` flags
+   - Define `_build_task(budget: int) -> TaskRequest` closure and call `submit_with_retry(client, _build_task, args.max_steps, max_retries)`
    - Accept `--output`, `--continued-from`, optionally `--verbose`
    - Print task ID to stderr after completion
-   - Exit 2 on `has_successful_answer == False`
+   - Exit 2 on truncation or `has_successful_answer == False`
 3. Update the skill's `SKILL.md` if the interface changes
 
 ### JSONL Batch Format

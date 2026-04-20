@@ -94,6 +94,29 @@ With `--output`, saved as a structured Markdown document.
 
 ---
 
+## Retry on Truncation
+
+Complex synthesis planning can hit the agent's step limit. The script retries
+automatically with a larger budget (1.5× per attempt, up to 300 steps).
+
+```bash
+# Increase starting budget for multi-step synthesis (default: 100)
+uv run skills/edison-molecules/scripts/chemistry_task.py \
+    --query "..." --max-steps 150
+
+# Allow more retries (default: 3)
+uv run skills/edison-molecules/scripts/chemistry_task.py \
+    --query "..." --max-retries 5
+
+# Disable retry
+uv run skills/edison-molecules/scripts/chemistry_task.py \
+    --query "..." --no-retry
+```
+
+Exit code `2` means the result was truncated after all retries exhausted.
+
+---
+
 ## Notes on Output Quality
 
 - The Phoenix agent uses real cheminformatics tools; results include SMILES, predicted

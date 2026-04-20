@@ -27,6 +27,12 @@ import os
 import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))
+from edison_retry import (
+    add_retry_args, load_api_key, submit_with_retry_async, truncation_prefix,
+    DEFAULT_MAX_STEPS, DEFAULT_MAX_RETRIES,
+)
 import time
 from pathlib import Path
 from datetime import datetime
@@ -99,15 +105,43 @@ def load_queries(jsonl_path: Path) -> list[dict]:
     return queries
 
 
-async def submit_all(client: EdisonClient, queries: list[dict]) -> list[tuple[str, dict]]:
-    """Submit all queries concurrently and return list of (task_id, original_query)."""
-    print(f"Submitting {len(queries)} tasks concurrently ...", file=sys.stderr)
-    tasks = []
-    for q in queries:
-        task_id = await client.acreate_task(q)
-        print(f"  ✓ Submitted: {str(q.get('query', ''))[:60]}... → {task_id}", file=sys.stderr)
-        tasks.append((task_id, q))
-    return tasks
+async def run_one_task(
+    client: EdisonClient,
+    query: dict,
+    default_max_steps: int,
+    max_retries: int,
+) -> dict:
+    """Run a single task with retry, returning a result dict."""
+    row_max_steps = query.get("max_steps", default_max_steps)
+
+    def _build_task(budget: int) -> dict:
+        rt = {"max_steps": budget}
+        if query.get("continued_job_id"):
+            rt["continued_job_id"] = query["continued_job_id"]
+        return {**query, "runtime_config": rt}
+
+    print(f"  Submitting: {str(query.get('query', ''))[:60]}...", file=sys.stderr)
+    response, was_truncated = await submit_with_retry_async(
+        client, _build_task, row_max_steps, max_retries,
+        poll_interval=POLL_INTERVAL_SECS, max_poll_attempts=MAX_POLL_ATTEMPTS,
+    )
+
+    task_id = getattr(response, "task_id", getattr(response, "id", "unknown")) if response else "unknown"
+    status = getattr(response, "status", "unknown") if response else "timeout"
+
+    if was_truncated:
+        print(f"  ⚠ Truncated: {task_id}", file=sys.stderr)
+    elif status == "success":
+        print(f"  ✓ Done: {task_id}", file=sys.stderr)
+    else:
+        print(f"  ✗ Failed ({status}): {task_id}", file=sys.stderr)
+
+    return {
+        "task_id": task_id,
+        "query": query,
+        "response": response,
+        "status": "truncated" if was_truncated else status,
+    }
 
 
 async def poll_until_done(
@@ -172,12 +206,14 @@ def render_results(results: list[dict], submitted_at: str) -> str:
     """Render all results as a Markdown document."""
     completed_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     success_count = sum(1 for r in results if r["status"] == "success")
+    truncated_count = sum(1 for r in results if r["status"] == "truncated")
 
     header = [
         "# Edison Batch Results",
         f"*Submitted: {submitted_at} | Completed: {completed_at}*",
         f"*Tasks: {len(results)} submitted, {success_count} succeeded, "
-        f"{len(results) - success_count} failed/timed out*",
+        f"{truncated_count} truncated, "
+        f"{len(results) - success_count - truncated_count} failed/timed out*",
         "",
     ]
 
@@ -195,9 +231,12 @@ def render_results(results: list[dict], submitted_at: str) -> str:
             "",
         ]
 
-        if r["response"] and r["status"] == "success":
+        if r["response"] and r["status"] in ("success", "truncated"):
             answer = getattr(r["response"], "formatted_answer", None) or getattr(r["response"], "answer", "No answer.")
-            lines += [answer, ""]
+            if r["status"] == "truncated":
+                lines += ["> ⚠ This result is truncated (retries exhausted).", "", answer, ""]
+            else:
+                lines += [answer, ""]
 
         lines += [f"*Task ID: `{r['task_id']}`*", "", "---", ""]
         sections.append("\n".join(lines))
@@ -205,12 +244,12 @@ def render_results(results: list[dict], submitted_at: str) -> str:
     return "\n".join(header) + "\n" + "\n".join(sections)
 
 
-async def async_main(args, api_key: str):
+async def async_main(args, api_key: str, max_retries: int):
     client = EdisonClient(api_key=api_key)
     submitted_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     if args.poll:
-        # Poll-only mode: load previously saved task IDs
+        # Poll-only mode: load previously saved task IDs and poll (no retry support)
         ids_path = Path(args.poll)
         lines = [l.strip() for l in ids_path.read_text().splitlines() if l.strip()]
         submitted = [(line.split("\t")[0], {"query": line.split("\t")[1] if "\t" in line else "unknown"})
@@ -218,22 +257,31 @@ async def async_main(args, api_key: str):
         print(f"Polling {len(submitted)} previously submitted tasks ...", file=sys.stderr)
         results = await poll_until_done(client, submitted)
 
-    else:
-        # Load and submit queries
+    elif args.submit_only:
+        # Fire-and-forget: submit only, save task IDs (no retry in submit-only mode)
         queries = load_queries(Path(args.input))
-        submitted = await submit_all(client, queries)
+        print(f"Submitting {len(queries)} tasks ...", file=sys.stderr)
+        submitted = []
+        for q in queries:
+            task_id = await client.acreate_task(q)
+            print(f"  ✓ Submitted: {str(q.get('query', ''))[:60]}... → {task_id}", file=sys.stderr)
+            submitted.append((task_id, q))
+        out_path = Path(args.task_ids_out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w") as f:
+            for task_id, query in submitted:
+                f.write(f"{task_id}\t{query.get('query', '')}\n")
+        print(f"✓ {len(submitted)} task IDs saved to: {out_path}", file=sys.stderr)
+        return
 
-        if args.submit_only:
-            # Save task IDs and exit
-            out_path = Path(args.task_ids_out)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with out_path.open("w") as f:
-                for task_id, query in submitted:
-                    f.write(f"{task_id}\t{query.get('query', '')}\n")
-            print(f"✓ {len(submitted)} task IDs saved to: {out_path}", file=sys.stderr)
-            return
-
-        results = await poll_until_done(client, submitted)
+    else:
+        # Full batch: submit + wait with per-task retry
+        queries = load_queries(Path(args.input))
+        print(f"Running {len(queries)} tasks concurrently (with retry) ...", file=sys.stderr)
+        results = await asyncio.gather(*[
+            run_one_task(client, q, args.max_steps, max_retries)
+            for q in queries
+        ])
 
     # ── Output ────────────────────────────────────────────────────────────────
     output_text = render_results(results, submitted_at)
@@ -261,14 +309,13 @@ def main():
                         help="Where to save task IDs when using --submit-only")
     parser.add_argument("--output", metavar="PATH",
                         help="Save Markdown results to this path")
+    add_retry_args(parser)
     args = parser.parse_args()
 
-    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
-    if not api_key:
-        print("✗ EDISON_PLATFORM_API_KEY not set in environment or .env", file=sys.stderr)
-        sys.exit(1)
+    max_retries = 0 if args.no_retry else args.max_retries
+    api_key = load_api_key()
 
-    asyncio.run(async_main(args, api_key))
+    asyncio.run(async_main(args, api_key, max_retries))
 
 
 if __name__ == "__main__":

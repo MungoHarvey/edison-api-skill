@@ -5,3 +5,7 @@ requires-python = ">=3.11"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-mock>=3"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+addopts = "--cov=skills/_common --cov-report=term-missing --cov-fail-under=80"

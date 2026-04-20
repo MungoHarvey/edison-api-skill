@@ -126,6 +126,33 @@ are retrieved in a separate step.
 
 ---
 
+## Retry on Truncation
+
+In full batch mode (`--input`), each task retries independently if it hits the step
+limit (budget escalates 1.5× per attempt, up to 300 steps, with a concurrency cap of
+8 simultaneous retry chains).
+
+```bash
+# Increase starting budget for all tasks in the batch (default: 100)
+uv run skills/edison-async/scripts/async_batch.py \
+    --input queries.jsonl --max-steps 150 --output results/batch.md
+
+# Allow more retries per task (default: 3)
+uv run skills/edison-async/scripts/async_batch.py \
+    --input queries.jsonl --max-retries 5 --output results/batch.md
+
+# Disable retry
+uv run skills/edison-async/scripts/async_batch.py \
+    --input queries.jsonl --no-retry --output results/batch.md
+```
+
+Per-task override: add `"max_steps": N` to any JSONL row to override the global
+`--max-steps` for that specific task.
+
+Note: retry is not applied in `--submit-only` or `--poll` mode.
+
+---
+
 ## Additional Resources
 
 - **[`references/tasks.md`](references/tasks.md)** — full client method table, list-batching
