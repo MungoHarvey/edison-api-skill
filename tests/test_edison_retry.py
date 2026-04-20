@@ -201,6 +201,70 @@ def test_async_truncated_then_succeeds():
     assert len(client.calls) == 2
 
 
+def test_async_all_retries_truncated():
+    """Async: all retries exhausted → was_truncated=True, N+1 calls made."""
+    responses = [FakeResponse(body="Task Truncated (Max Steps Reached)") for _ in range(4)]
+    client = FakeAsyncEdisonClient(responses)
+
+    async def run():
+        return await submit_with_retry_async(client, _make_task_dict, 100, 3, poll_interval=0)
+
+    resp, was_truncated = asyncio.run(run())
+    assert was_truncated is True
+    assert len(client.calls) == 4  # initial + 3 retries
+
+
+def test_async_poll_timeout_returns_none():
+    """Async: max_poll_attempts=0 → poll loop never runs → resp=None → (None, False)."""
+    client = FakeAsyncEdisonClient([FakeResponse(answer="never polled")])
+
+    async def run():
+        return await submit_with_retry_async(
+            client, _make_task_dict, 100, 0, poll_interval=0, max_poll_attempts=0
+        )
+
+    resp, was_truncated = asyncio.run(run())
+    assert resp is None
+    assert was_truncated is False
+
+
+def test_async_step_ceiling_caps_budget():
+    """Async: budget escalation is capped at STEP_CEILING (mirrors sync behaviour)."""
+    responses = [FakeResponse(body="Task Truncated (Max Steps Reached)") for _ in range(10)]
+    client = FakeAsyncEdisonClient(responses)
+
+    async def run():
+        return await submit_with_retry_async(client, _make_task_dict, 250, 10, poll_interval=0)
+
+    _, was_truncated = asyncio.run(run())
+    assert was_truncated is True
+    budgets = [c.get("runtime_config", {}).get("max_steps", 0) for c in client.calls]
+    assert max(budgets) == STEP_CEILING
+    assert all(b <= STEP_CEILING for b in budgets)
+
+
+def test_async_taskobject_warn_path(capsys):
+    """Async: _warn extracts task_name from non-dict (e.g. namedtuple) via getattr."""
+    from collections import namedtuple
+    Task = namedtuple("Task", ["name", "query", "runtime_config"])
+
+    def _make_task_obj(budget):
+        return Task(name="MOLECULES", query="namedtuple test", runtime_config={"max_steps": budget})
+
+    truncated = FakeResponse(body="Task Truncated (Max Steps Reached)")
+    success = FakeResponse(answer="done")
+    client = FakeAsyncEdisonClient([truncated, success])
+
+    async def run():
+        return await submit_with_retry_async(client, _make_task_obj, 100, 3, poll_interval=0)
+
+    resp, was_truncated = asyncio.run(run())
+    assert was_truncated is False
+    assert resp.answer == "done"
+    err = capsys.readouterr().err
+    assert "MOLECULES" in err
+
+
 def test_async_semaphore_limits_concurrency():
     """T9: Semaphore(8) caps in-flight retry chains to 8 concurrent.
 
