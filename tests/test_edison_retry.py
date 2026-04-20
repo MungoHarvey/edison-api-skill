@@ -12,6 +12,8 @@ from edison_retry import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_MAX_STEPS,
     STEP_CEILING,
+    MAX_CONCURRENT_CHAINS,
+    BUDGET_ESCALATION_FACTOR,
     _detect_signal,
     is_truncated,
     submit_with_retry,
@@ -94,8 +96,11 @@ def test_always_truncated_exhausts_retries():
 
 
 def test_step_ceiling_caps_budget():
-    """T4: budget escalation is capped at STEP_CEILING."""
-    # With budget=250, next = min(375, 300) = 300; then min(450, 300)=300 == prev → stop
+    """T4: budget escalation is capped at STEP_CEILING.
+
+    Starting at 250: next = min(375, 300) = 300; then min(450, 300)=300 == budget → stop.
+    So: [250, 300] = exactly 2 calls before early exit.
+    """
     responses = [FakeResponse(body="Task Truncated (Max Steps Reached)") for _ in range(10)]
     client = FakeEdisonClient(responses)
 
@@ -104,9 +109,8 @@ def test_step_ceiling_caps_budget():
     assert was_truncated is True
     budgets = [c.runtime_config["max_steps"] for c in client.calls]
     assert max(budgets) == STEP_CEILING
-    # Once ceiling is reached the loop terminates (no further escalation possible)
-    assert budgets.count(STEP_CEILING) >= 1
     assert all(b <= STEP_CEILING for b in budgets)
+    assert len(budgets) == 2  # 250 → 300 → stop (next would be 300 again)
 
 
 def test_no_retry_flag():
@@ -150,6 +154,8 @@ def test_default_constants():
     assert DEFAULT_MAX_STEPS == 100
     assert DEFAULT_MAX_RETRIES == 3
     assert STEP_CEILING == 300
+    assert MAX_CONCURRENT_CHAINS == 8
+    assert BUDGET_ESCALATION_FACTOR == 1.5
 
 
 def test_escalation_sequence():
@@ -199,6 +205,50 @@ def test_async_truncated_then_succeeds():
     assert was_truncated is False
     assert resp.answer == "async complete"
     assert len(client.calls) == 2
+
+
+def test_list_response_empty_raises():
+    """T6b: client returns empty list → IndexError (documents current behavior)."""
+    client = FakeEdisonClient([[]])  # queue has an empty list
+    with pytest.raises(IndexError):
+        submit_with_retry(client, _make_task, 100, 0)
+
+
+def test_async_pending_poll_loop():
+    """Async: poll loop iterates through pending status before receiving success."""
+    call_count = 0
+
+    class PendingThenSuccessClient:
+        """Returns status='pending' for the first 2 polls, then 'success'."""
+        def __init__(self):
+            self.calls = []
+            self._task_counter = 0
+            self._poll_counts: dict = {}
+
+        async def acreate_task(self, task) -> str:
+            self.calls.append(task)
+            self._task_counter += 1
+            task_id = f"pending-{self._task_counter}"
+            self._poll_counts[task_id] = 0
+            return task_id
+
+        async def aget_task(self, task_id: str):
+            nonlocal call_count
+            self._poll_counts[task_id] += 1
+            call_count += 1
+            if self._poll_counts[task_id] < 3:
+                return FakeResponse(status="pending", answer="")
+            return FakeResponse(answer="polled success")
+
+    client = PendingThenSuccessClient()
+
+    async def run():
+        return await submit_with_retry_async(client, _make_task_dict, 100, 0, poll_interval=0)
+
+    resp, was_truncated = asyncio.run(run())
+    assert was_truncated is False
+    assert resp.answer == "polled success"
+    assert call_count >= 3  # had to poll at least 3 times
 
 
 def test_async_all_retries_truncated():
@@ -300,12 +350,9 @@ def test_async_semaphore_limits_concurrency():
 
         async def aget_task(self, task_id: str):
             resp = self._pending.get(task_id)
-            active_here = True
-            # Decrement only once per task chain
-            if active_here:
-                nonlocal active
-                active -= 1
-                self._pending.pop(task_id, None)
+            nonlocal active
+            active -= 1
+            self._pending.pop(task_id, None)
             return resp
 
     client = InstrumentedAsyncClient(n)
@@ -318,7 +365,7 @@ def test_async_semaphore_limits_concurrency():
 
     asyncio.run(run_all())
 
-    assert max_concurrent <= 8, f"Expected ≤8 concurrent, got {max_concurrent}"
+    assert max_concurrent <= MAX_CONCURRENT_CHAINS, f"Expected ≤{MAX_CONCURRENT_CHAINS} concurrent, got {max_concurrent}"
 
 
 # ── add_retry_args ────────────────────────────────────────────────────────────

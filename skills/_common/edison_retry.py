@@ -21,6 +21,8 @@ from typing import Any, Callable
 DEFAULT_MAX_STEPS = 100
 DEFAULT_MAX_RETRIES = 3
 STEP_CEILING = 300
+MAX_CONCURRENT_CHAINS = 8   # semaphore cap for async retry storms
+BUDGET_ESCALATION_FACTOR = 1.5
 
 # Lazily initialised; created inside the running event loop on first use.
 _RETRY_SEM: asyncio.Semaphore | None = None
@@ -29,8 +31,13 @@ _RETRY_SEM: asyncio.Semaphore | None = None
 def _get_sem() -> asyncio.Semaphore:
     global _RETRY_SEM
     if _RETRY_SEM is None:
-        _RETRY_SEM = asyncio.Semaphore(8)
+        _RETRY_SEM = asyncio.Semaphore(MAX_CONCURRENT_CHAINS)
     return _RETRY_SEM
+
+
+def _next_budget(budget: int) -> int:
+    """Return the next escalated budget, capped at STEP_CEILING."""
+    return min(int(budget * BUDGET_ESCALATION_FACTOR), STEP_CEILING)
 
 
 # ── Truncation detection ──────────────────────────────────────────────────────
@@ -111,7 +118,7 @@ def submit_with_retry(
         query_prefix = str(getattr(task, "query", ""))[:80]
         _warn(task_name, query_prefix, attempt + 1, budget, signal)
 
-        next_budget = min(int(budget * 1.5), STEP_CEILING)
+        next_budget = _next_budget(budget)
         if attempt == max_retries or next_budget <= budget:
             print(f"⚠ Retries exhausted at {budget} steps.", file=sys.stderr)
             return last_response, True
@@ -169,7 +176,7 @@ async def submit_with_retry_async(
             query_prefix = (task.get("query", "") if isinstance(task, dict) else str(getattr(task, "query", "")))[:80]
             _warn(task_name, query_prefix, attempt + 1, budget, signal)
 
-            next_budget = min(int(budget * 1.5), STEP_CEILING)
+            next_budget = _next_budget(budget)
             if attempt == max_retries or next_budget <= budget:
                 print(f"⚠ Retries exhausted at {budget} steps.", file=sys.stderr)
                 return last_response, True
