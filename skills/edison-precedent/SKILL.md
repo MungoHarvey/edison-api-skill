@@ -105,6 +105,29 @@ literature is sparse or the query needs refinement. Always verify borderline res
 
 ---
 
+## Retry on Truncation
+
+If the agent hits the step limit before completing, the script automatically retries
+with a larger budget (1.5× per attempt, up to 300 steps).
+
+```bash
+# Increase starting budget (default: 100)
+uv run skills/edison-precedent/scripts/precedent_search.py \
+    --query "..." --max-steps 150
+
+# Allow more retries (default: 3)
+uv run skills/edison-precedent/scripts/precedent_search.py \
+    --query "..." --max-retries 5
+
+# Disable retry
+uv run skills/edison-precedent/scripts/precedent_search.py \
+    --query "..." --no-retry
+```
+
+Exit code `2` means a result was truncated or `has_successful_answer` is False for any query.
+
+---
+
 ## Research Workflow Tip
 
 Run precedent searches **before** literature searches to quickly triage whether

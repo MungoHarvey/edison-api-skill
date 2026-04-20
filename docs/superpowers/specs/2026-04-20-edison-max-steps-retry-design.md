@@ -128,43 +128,100 @@ the Edison API does not support extending a truncated run.
 - Exit code `2` on final truncation (consistent with existing
   `has_successful_answer == False` convention).
 
-### Self-contained pattern
+### Shared module
 
-The helpers (`is_truncated`, `submit_with_retry`, constants, CLI flags) are
-copy-pasted into each of the five scripts rather than extracted to a shared
-module. This preserves the existing PEP 723 self-contained convention
-(each script runnable via `uv run <script>.py` with inline dependencies)
-documented in `CLAUDE.md`.
+Helpers (`is_truncated`, `submit_with_retry`, `submit_with_retry_async`,
+constants) live in `skills/_common/edison_retry.py`. Each script adds a small
+`sys.path` injection block before importing, so PEP 723 `uv run` compatibility
+is preserved (the common module is pure Python, no extra deps). Pattern:
+
+```python
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))
+from edison_retry import is_truncated, submit_with_retry, STEP_CEILING, DEFAULT_MAX_STEPS, DEFAULT_MAX_RETRIES
+```
+
+Rationale: eng-review decision 1A. ~200 LOC duplication avoided; bug fixes and
+detector-signal additions land in one place. CLAUDE.md's "self-contained
+convention" is updated to document the `_common` sibling import pattern.
+
+The module additionally exposes:
+
+- `add_retry_args(parser)` — adds `--max-steps`, `--max-retries`, `--no-retry`
+  to any `argparse.ArgumentParser`. Kills ~15 LOC × 5 scripts.
+- `load_api_key()` — returns `EDISON_PLATFORM_API_KEY` (falling back to
+  `EDISON_API_KEY`) or prints the standard error and `sys.exit(1)`.
+
+`submit_with_retry` returns `(response, was_truncated)` where `response` has
+already been list-unwrapped, so callers drop their `isinstance(resp, list)`
+branch. On final truncation the caller exits with code **2** — the same code
+used for `has_successful_answer == False` — so truncation is treated as a
+soft failure under the existing CLAUDE.md convention, not a new exit code.
+
+### Truncation logging
+
+On every detected truncation (both during retries and on final exhaustion),
+`submit_with_retry` emits a single-line WARN record to stderr including:
+task type (`JobNames` value), query prefix (first 80 chars), attempt number,
+budget used, and the matched detector signal (`status` / `truncated` attr /
+body substring). Rationale: review issue 1C — the body-substring detector is
+the weakest signal; logging the matched signal lets us catch regressions if
+the platform changes its truncation surface.
+
+### Async concurrency guard
+
+`submit_with_retry_async` in `async_batch.py` is gated by a module-level
+`asyncio.Semaphore(8)` so retries cannot storm the platform. Without it, a
+batch of 20 truncating tasks × 3 retries would burst to 80 concurrent
+submissions. Rationale: eng-review decision 1B.
 
 ## Implementation phases
 
-1. **Sync scripts** — `literature_search.py`, `precedent_search.py`,
-   `chemistry_task.py`, `data_analysis.py`: add flags, detector, retry wrapper.
-2. **Async script** — `async_batch.py`: add flags, per-row `max_steps` parsing,
-   async retry wrapper, per-task truncation surfacing.
-3. **Evaluation** — `evaluate_skills.py`: `evaluate_skill` and
+1. **Shared module** — create `skills/_common/edison_retry.py` with
+   `is_truncated`, `submit_with_retry`, `submit_with_retry_async`, constants,
+   and the WARN-log helper. Add unit tests using a fake-response pytest fixture.
+2. **Sync scripts** — `literature_search.py`, `precedent_search.py`,
+   `chemistry_task.py`, `data_analysis.py`: add `sys.path` import, CLI flags,
+   and swap the `run_tasks_until_done` call for `submit_with_retry`.
+3. **Async script** — `async_batch.py`: add flags, per-row `max_steps` parsing,
+   `submit_with_retry_async` with `Semaphore(8)`, per-task truncation surfacing.
+4. **Evaluation** — `evaluate_skills.py`: `evaluate_skill` and
    `evaluate_analysis_skill` construct tasks inline rather than shelling out
    to the per-skill scripts. Apply the same detector + retry wrapper here so
    full-mode runs inherit the retry behaviour. Surface truncation in the
    report's per-skill "Status" column as a third state (`⚠ Truncated`).
-4. **Documentation & skill instructions** — update:
+5. **Documentation & skill instructions** — update:
    - `CLAUDE.md` Quick Reference and Running Skills sections with the new flags
      and a note on retry behaviour.
    - Each `skills/<skill>/SKILL.md` to mention `--max-steps` / `--max-retries`
      in the skill's usage examples.
    - `.env.example` comment if retry-tuning env vars are ever added
      (none planned in this change).
-5. **Manual verification** — once Edison platform access is restored, run a
+6. **Manual verification** — once Edison platform access is restored, run a
    known-long literature query (the TDP-43 prompt) with defaults and confirm
    either successful completion or a clean retry-exhaustion message.
 
 ## Testing strategy
 
-- **Unit-level** (per script, no platform): build a fake response object that
-  flips between truncated and complete, and assert the retry loop behaves:
-  completes on first success, escalates on truncation, caps at `STEP_CEILING`,
-  and respects `--max-retries 0`.
-- **Integration** (requires platform access): covered by phase 5.
+Tests live at `tests/` at the repo root (single `uv run pytest` entrypoint).
+`tests/conftest.py` provides a `FakeEdisonClient` with a scripted response
+queue — deterministic and explicit. Full test matrix is in the eng-review
+test-plan artifact under `~/.gstack/projects/<slug>/`.
+
+- **Unit-level** (no platform):
+  - Detector: parameterised over all five truth-paths.
+  - `submit_with_retry`: first-success, truncate-then-success, exhaustion,
+    `STEP_CEILING` cap, `--no-retry`, list-unwrap, WARN-log contents.
+  - `submit_with_retry_async`: **asserts `Semaphore(8)` caps in-flight
+    concurrency** (20 truncating tasks instrumented on the fake client).
+  - `add_retry_args` defaults + `--no-retry`.
+  - `load_api_key`: both env vars, backward-compat fallback, exit on neither.
+- **Regression** (no platform):
+  - `continued_from` still plumbed through `runtime_config` alongside
+    `max_steps`.
+  - Output Markdown on successful runs matches golden file.
+  - Truncated-run Markdown has the `> ⚠ Task truncated ...` prefix.
+- **Integration** (requires platform access): covered by phase 6.
 
 ## Risks
 

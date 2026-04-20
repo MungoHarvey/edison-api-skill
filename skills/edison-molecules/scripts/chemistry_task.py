@@ -20,6 +20,12 @@ import os
 import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))
+from edison_retry import (
+    add_retry_args, load_api_key, submit_with_retry, truncation_prefix,
+    DEFAULT_MAX_STEPS,
+)
 from pathlib import Path
 from datetime import datetime
 
@@ -62,31 +68,29 @@ def main():
                         help="Chain this query as a follow-up to a prior task")
     parser.add_argument("--output", metavar="PATH",
                         help="Save Markdown output to this file path")
+    add_retry_args(parser)
     args = parser.parse_args()
 
-    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
-    if not api_key:
-        print("✗ EDISON_PLATFORM_API_KEY not set in environment or .env", file=sys.stderr)
-        sys.exit(1)
-
+    max_retries = 0 if args.no_retry else args.max_retries
+    api_key = load_api_key()
     client = EdisonClient(api_key=api_key)
 
-    runtime_config = {}
-    if args.continued_from:
-        runtime_config["continued_job_id"] = args.continued_from
-
-    task = TaskRequest(
-        name=JobNames.MOLECULES,
-        query=args.query,
-        runtime_config=runtime_config if runtime_config else None,
-    )
+    def _build_task(budget: int) -> TaskRequest:
+        runtime_config: dict = {"max_steps": budget}
+        if args.continued_from:
+            runtime_config["continued_job_id"] = args.continued_from
+        return TaskRequest(
+            name=JobNames.MOLECULES,
+            query=args.query,
+            runtime_config=runtime_config,
+        )
 
     print(f"Submitting chemistry task: {args.query!r}", file=sys.stderr)
     print("Waiting for Phoenix agent (may take 60–180 seconds) ...", file=sys.stderr)
 
-    response = client.run_tasks_until_done(task, verbose=args.verbose)
-    if isinstance(response, list):
-        response = response[0]
+    response, was_truncated = submit_with_retry(
+        client, _build_task, args.max_steps, max_retries, verbose=args.verbose
+    )
 
     task_id = getattr(response, "task_id", getattr(response, "id", "unknown"))
     answer = getattr(response, "answer", "No answer returned.")
@@ -119,6 +123,8 @@ def main():
         ]
 
     output_text = "\n".join(lines)
+    if was_truncated:
+        output_text = truncation_prefix(max_retries + 1, args.max_steps) + output_text
 
     if args.output:
         out_path = Path(args.output)
@@ -129,6 +135,9 @@ def main():
         print(output_text)
 
     print(f"\n=== TASK ID (save for follow-ups) ===\n{task_id}", file=sys.stderr)
+
+    if was_truncated:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,12 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 import os
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))
+from edison_retry import (
+    add_retry_args, load_api_key, submit_with_retry,
+    DEFAULT_MAX_STEPS, DEFAULT_MAX_RETRIES,
+)
 import argparse
 import time
 import json
@@ -121,7 +127,7 @@ def evaluate_dummy(client, skill_name):
         }
 
 
-def evaluate_skill(client, skill_type, query):
+def evaluate_skill(client, skill_type, query, max_steps=DEFAULT_MAX_STEPS, max_retries=DEFAULT_MAX_RETRIES):
     """Run a real test query against a skill."""
     job_name_map = {
         "literature": JobNames.LITERATURE,
@@ -133,25 +139,23 @@ def evaluate_skill(client, skill_type, query):
         job_name_map["literature_high"] = JobNames.LITERATURE_HIGH
 
     if skill_type not in job_name_map:
-        return {"pass": False, "latency": 0, "answer": "Unknown skill type"}
+        return {"pass": False, "latency": 0, "answer": "Unknown skill type", "truncated": False}
 
     job_name = job_name_map[skill_type]
     start = time.perf_counter()
 
     try:
-        response = client.run_tasks_until_done({
-            "name": job_name,
-            "query": query
-        })
-        if isinstance(response, list):
-            response = response[0]
+        from edison_client.models.app import TaskRequest
+
+        def _build_task(budget):
+            return TaskRequest(name=job_name, query=query, runtime_config={"max_steps": budget})
+
+        response, was_truncated = submit_with_retry(client, _build_task, max_steps, max_retries)
         elapsed = time.perf_counter() - start
 
-        # Extract fields from response
         has_successful_answer = getattr(response, 'has_successful_answer', False)
         answer = getattr(response, 'formatted_answer', getattr(response, 'answer', ''))
 
-        # Count citations for literature / literature_high
         citations = (
             len(re.findall(r'\[\d+\]', str(answer)))
             if skill_type in ("literature", "literature_high")
@@ -159,7 +163,8 @@ def evaluate_skill(client, skill_type, query):
         )
 
         return {
-            "pass": has_successful_answer,
+            "pass": has_successful_answer and not was_truncated,
+            "truncated": was_truncated,
             "latency": elapsed,
             "answer": str(answer)[:300],
             "answer_length": len(str(answer)),
@@ -171,34 +176,37 @@ def evaluate_skill(client, skill_type, query):
         elapsed = time.perf_counter() - start
         return {
             "pass": False,
+            "truncated": False,
             "latency": elapsed,
             "answer": f"Error: {str(e)[:100]}",
             "test_type": "real"
         }
 
 
-def evaluate_analysis_skill(client):
+def evaluate_analysis_skill(client, max_steps=DEFAULT_MAX_STEPS, max_retries=DEFAULT_MAX_RETRIES):
     """Special case: analysis skill with embedded test CSV."""
-    job_name = JobNames.ANALYSIS
+    from edison_client.models.app import TaskRequest
 
-    # Prepare the payload: CSV data + question
     query_with_data = f"{ANALYSIS_TEST_CSV}\n\nQuestion: {ANALYSIS_TEST_QUERY}"
 
     start = time.perf_counter()
     try:
-        response = client.run_tasks_until_done({
-            "name": job_name,
-            "query": query_with_data
-        })
-        if isinstance(response, list):
-            response = response[0]
+        def _build_task(budget):
+            return TaskRequest(
+                name=JobNames.ANALYSIS,
+                query=query_with_data,
+                runtime_config={"max_steps": budget},
+            )
+
+        response, was_truncated = submit_with_retry(client, _build_task, max_steps, max_retries)
         elapsed = time.perf_counter() - start
 
         has_successful_answer = getattr(response, 'has_successful_answer', False)
         answer = getattr(response, 'formatted_answer', getattr(response, 'answer', ''))
 
         return {
-            "pass": has_successful_answer,
+            "pass": has_successful_answer and not was_truncated,
+            "truncated": was_truncated,
             "latency": elapsed,
             "answer": str(answer)[:300],
             "answer_length": len(str(answer)),
@@ -210,6 +218,7 @@ def evaluate_analysis_skill(client):
         elapsed = time.perf_counter() - start
         return {
             "pass": False,
+            "truncated": False,
             "latency": elapsed,
             "answer": f"Error: {str(e)[:100]}",
             "test_type": "real"
@@ -238,7 +247,12 @@ def format_report(results, skills, mode):
             continue
 
         result = results[skill]
-        status = "✓ Pass" if result["pass"] else "✗ Fail"
+        if result.get("truncated"):
+            status = "⚠ Truncated"
+        elif result["pass"]:
+            status = "✓ Pass"
+        else:
+            status = "✗ Fail"
         latency = f"{result['latency']:.2f}"
         answer_len = result.get("answer_length", len(result.get("answer", "")))
         citations = result.get("citations", "—")
@@ -257,7 +271,12 @@ def format_report(results, skills, mode):
             continue
 
         result = results[skill]
-        status = "✓ PASS" if result["pass"] else "✗ FAIL"
+        if result.get("truncated"):
+            status = "⚠ TRUNCATED"
+        elif result["pass"]:
+            status = "✓ PASS"
+        else:
+            status = "✗ FAIL"
         test_type = result.get("test_type", "unknown")
 
         lines.append(f"### {skill.capitalize()} — {status} ({test_type})")
@@ -305,6 +324,7 @@ def main():
         "--output",
         help="Save report to file (Markdown)"
     )
+    add_retry_args(parser)
 
     args = parser.parse_args()
 
@@ -333,12 +353,9 @@ def main():
     print(f"=== Edison Skill Evaluation ({mode.upper()}) ===", file=sys.stderr)
     print(f"Skills: {', '.join(skills_to_test)}", file=sys.stderr)
 
-    # Initialize client
-    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
-    if not api_key:
-        print("✗ EDISON_PLATFORM_API_KEY not set in environment", file=sys.stderr)
-        sys.exit(2)
+    max_retries = 0 if args.no_retry else args.max_retries
 
+    api_key = load_api_key()
     client = EdisonClient(api_key=api_key)
 
     # Run evaluations
@@ -350,10 +367,10 @@ def main():
         if mode == "quick":
             result = evaluate_dummy(client, skill)
         elif skill == "analysis":
-            result = evaluate_analysis_skill(client)
+            result = evaluate_analysis_skill(client, max_steps=args.max_steps, max_retries=max_retries)
         else:
             query = TEST_QUERIES[skill]
-            result = evaluate_skill(client, skill, query)
+            result = evaluate_skill(client, skill, query, max_steps=args.max_steps, max_retries=max_retries)
 
         results[skill] = result
         status = "✓" if result["pass"] else "✗"

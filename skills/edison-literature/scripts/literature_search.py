@@ -21,6 +21,12 @@ import os
 import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "_common"))
+from edison_retry import (
+    add_retry_args, load_api_key, submit_with_retry, truncation_prefix,
+    DEFAULT_MAX_STEPS, DEFAULT_MAX_RETRIES,
+)
 from pathlib import Path
 from datetime import datetime
 
@@ -59,9 +65,9 @@ def _has_literature_high() -> bool:
 
 
 def build_task(query: str, verbose: bool, continued_from: str | None,
-               high: bool = False) -> TaskRequest:
+               high: bool = False, max_steps: int = DEFAULT_MAX_STEPS) -> TaskRequest:
     """Construct the TaskRequest with optional chaining, verbosity, and high-reasoning mode."""
-    runtime_config = {}
+    runtime_config: dict = {"max_steps": max_steps}
 
     if continued_from:
         runtime_config["continued_job_id"] = continued_from
@@ -138,15 +144,13 @@ def main():
                              "more credits). Requires compatible edison-client version.")
     parser.add_argument("--output", metavar="PATH",
                         help="Save formatted Markdown output to this file path")
+    add_retry_args(parser)
     args = parser.parse_args()
 
-    api_key = os.getenv("EDISON_PLATFORM_API_KEY") or os.getenv("EDISON_API_KEY")
-    if not api_key:
-        print("✗ EDISON_PLATFORM_API_KEY not set in environment or .env", file=sys.stderr)
-        sys.exit(1)
+    max_retries = 0 if args.no_retry else args.max_retries
 
+    api_key = load_api_key()
     client = EdisonClient(api_key=api_key)
-    task = build_task(args.query, args.verbose, args.continued_from, high=args.high)
 
     print(f"Submitting literature query: {args.query!r}", file=sys.stderr)
     wait_msg = (
@@ -156,9 +160,13 @@ def main():
     )
     print(wait_msg, file=sys.stderr)
 
-    response = client.run_tasks_until_done(task, verbose=args.verbose)
-    if isinstance(response, list):
-        response = response[0]
+    def _build_task(budget: int) -> TaskRequest:
+        return build_task(args.query, args.verbose, args.continued_from,
+                          high=args.high, max_steps=budget)
+
+    response, was_truncated = submit_with_retry(
+        client, _build_task, args.max_steps, max_retries, verbose=args.verbose
+    )
 
     # Print task ID for future chaining
     task_id = getattr(response, "task_id", getattr(response, "id", None))
@@ -166,6 +174,8 @@ def main():
 
     # Render output
     output_text = format_output(response, args.verbose)
+    if was_truncated:
+        output_text = truncation_prefix(max_retries + 1, args.max_steps) + output_text
 
     if args.output:
         out_path = Path(args.output)
@@ -175,9 +185,9 @@ def main():
     else:
         print(output_text)
 
-    # Surface success flag as exit code
-    if getattr(response, "has_successful_answer", True) is False:
-        print("⚠ Agent reported no successful answer found.", file=sys.stderr)
+    if was_truncated or getattr(response, "has_successful_answer", True) is False:
+        if not was_truncated:
+            print("⚠ Agent reported no successful answer found.", file=sys.stderr)
         sys.exit(2)
 
 

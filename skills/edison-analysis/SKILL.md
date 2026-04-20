@@ -107,6 +107,29 @@ is automatically truncated.
 
 ---
 
+## Retry on Truncation
+
+Large datasets or complex analyses can hit the agent's step limit. The script retries
+automatically with a larger budget (1.5× per attempt, up to 300 steps).
+
+```bash
+# Increase starting budget (default: 100)
+uv run skills/edison-analysis/scripts/data_analysis.py \
+    --query "..." --data data.csv --max-steps 150
+
+# Allow more retries (default: 3)
+uv run skills/edison-analysis/scripts/data_analysis.py \
+    --query "..." --data data.csv --max-retries 5
+
+# Disable retry
+uv run skills/edison-analysis/scripts/data_analysis.py \
+    --query "..." --data data.csv --no-retry
+```
+
+Exit code `2` means the result was truncated after all retries exhausted.
+
+---
+
 ## Example Workflow
 
 1. Prepare dataset in CSV format (e.g. DESeq2 output, z-scores, screening hits)

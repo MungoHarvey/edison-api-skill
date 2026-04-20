@@ -125,6 +125,30 @@ With `--verbose`, also available:
 
 ---
 
+## Retry on Truncation
+
+If the agent hits the step limit before completing, the script automatically retries
+with a larger budget (1.5× per attempt, up to 300 steps). The output will include a
+truncation warning if all retries are exhausted.
+
+```bash
+# Increase starting budget for complex queries (default: 100)
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "..." --max-steps 150
+
+# Allow more retries (default: 3)
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "..." --max-retries 5
+
+# Disable retry (single attempt only)
+uv run skills/edison-literature/scripts/literature_search.py \
+    --query "..." --no-retry
+```
+
+Exit code `2` means the result was truncated after all retries, or `has_successful_answer` is False.
+
+---
+
 ## Error Handling
 
 | Error | Cause | Fix |
@@ -132,6 +156,7 @@ With `--verbose`, also available:
 | `has_successful_answer = False` | Insufficient literature coverage | Rephrase query; broaden or narrow scope |
 | `AuthenticationError` | Bad API key | Check `.env`; regenerate at platform |
 | Timeout / long wait | Heavy search load | Use `edison-async` skill for non-blocking submission |
+| Exit code 2 + truncation warning | Agent hit step limit on all retries | Increase `--max-steps` or `--max-retries` |
 
 ---
 
