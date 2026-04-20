@@ -77,6 +77,11 @@ def is_truncated(response: Any) -> bool:
     return "max steps reached" in body_lower or "task truncated" in body_lower
 
 
+def _task_name(task: Any) -> str:
+    raw = task.get("name", "?") if isinstance(task, dict) else getattr(task, "name", "?")
+    return str(raw).split(".")[-1]
+
+
 def _warn(task_name: str, query_prefix: str, attempt: int, budget: int, signal: str) -> None:
     print(
         f"⚠ TRUNCATED [{task_name}] query='{query_prefix}' "
@@ -175,9 +180,8 @@ async def submit_with_retry_async(
             return resp, False
 
         signal = _detect_signal(resp)
-        task_name = str(task.get("name", "?")).split(".")[-1] if isinstance(task, dict) else str(getattr(task, "name", "?")).split(".")[-1]
         query_prefix = (task.get("query", "") if isinstance(task, dict) else str(getattr(task, "query", "")))[:80]
-        _warn(task_name, query_prefix, attempt + 1, budget, signal)
+        _warn(_task_name(task), query_prefix, attempt + 1, budget, signal)
 
         next_budget = _next_budget(budget)
         if attempt == max_retries or next_budget <= budget:
@@ -193,7 +197,11 @@ async def submit_with_retry_async(
 # ── CLI helpers ───────────────────────────────────────────────────────────────
 
 def add_retry_args(parser: Any) -> None:
-    """Add --max-steps, --max-retries, --no-retry to an ArgumentParser."""
+    """Add --max-steps, --max-retries, --no-retry to an ArgumentParser.
+
+    Callers must apply args.no_retry themselves:
+        max_retries = 0 if args.no_retry else args.max_retries
+    """
     parser.add_argument(
         "--max-steps",
         type=int,

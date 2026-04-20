@@ -15,6 +15,7 @@ from edison_retry import (
     MAX_CONCURRENT_CHAINS,
     BUDGET_ESCALATION_FACTOR,
     _detect_signal,
+    _task_name,
     is_truncated,
     submit_with_retry,
     submit_with_retry_async,
@@ -28,6 +29,37 @@ from conftest import (
     FakeEdisonClient,
     FakeResponse,
 )
+
+
+# ── _detect_signal: signal naming ────────────────────────────────────────────
+
+@pytest.mark.parametrize("resp,expected_fragment", [
+    (FakeResponse(status="truncated"),                        "status="),
+    (FakeResponse(status="TASK_TRUNCATED"),                   "status="),
+    (FakeResponse(truncated=True),                            "truncated=True"),
+    (FakeResponse(body="Task Truncated (Max Steps Reached)"), "max steps reached"),
+    (FakeResponse(body="task truncated: incomplete"),         "task truncated"),
+    (FakeResponse(answer="fine"),                             "unknown"),
+])
+def test_detect_signal_matrix(resp, expected_fragment):
+    assert expected_fragment in _detect_signal(resp)
+
+
+# ── _task_name helper ─────────────────────────────────────────────────────────
+
+def test_task_name_from_dict():
+    assert _task_name({"name": "LITERATURE"}) == "LITERATURE"
+
+def test_task_name_dotted_from_dict():
+    assert _task_name({"name": "JobNames.LITERATURE"}) == "LITERATURE"
+
+def test_task_name_from_namedtuple():
+    from collections import namedtuple
+    Task = namedtuple("Task", ["name"])
+    assert _task_name(Task(name="MOLECULES")) == "MOLECULES"
+
+def test_task_name_missing_key():
+    assert _task_name({}) == "?"
 
 
 # ── is_truncated: detector matrix ────────────────────────────────────────────
